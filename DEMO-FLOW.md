@@ -196,18 +196,18 @@ Ask in chat: *"What skills do you have?"* Wait for the agent to confirm `order-a
 *"It found a for loop processing orders one at a time with a blocking call per row — that's the slow path."*
 
 **3:30** — Show: **mitigation action** — agent scaled Container App  
-**PAUSE.** *"The important thing here: the agent detected elevated latency, identified which endpoint was slow, and scaled from 1 to 5 replicas to absorb the load. Mitigation first, root cause fix in the GitHub issue for the dev team."*
+**PAUSE.** *"The important thing here: the agent detected elevated latency, identified which endpoint was slow, and scaled from 1 to 5 replicas to absorb the load. That's the pattern — temporary autonomous mitigation at 2 AM, permanent fix by the dev team during business hours. The platform team's scaling budget is 10 replicas. The agent worked within that budget."*
 
 **4:00** — Show: GitHub issue + email  
 *"Bug filed, email sent. When I woke up: no pager, just a GitHub issue with a fix ready for review."*
 
 #### Part B — The guardrail (hooks)
 
-**4:30** — *"Now — you might be thinking: 'What if the agent decides to scale to 100 replicas?' That's a $50K bill."*
+**4:30** — *"Now — you might be thinking: 'What if the agent decides to scale to 100 replicas?' Fair question. That's a real cost risk."*
 
 **5:00** — *"That's where hooks come in."*  
 Navigate to **Hooks** → show the scaling guardrail hook  
-*"This is a PostToolUse hook. It intercepts every CLI write command and checks: if it's a scaling action, is the replica count above 10?"*
+*"This is a PostToolUse hook. It intercepts every CLI write command and checks: if it's a scaling action, is the replica count above 10? The platform team sets the ceiling — the agent works within that budget."*
 
 **5:30** — Show the hook script  
 *"This is a command hook — Python code, not a prompt. It regex-matches --min-replicas and --max-replicas in the CLI command. If the count exceeds 10, it blocks. Deterministic — the LLM can't talk its way around it."*
@@ -224,7 +224,7 @@ Show the hook's block response on screen (pre-captured or from the YAML): `POLIC
 *"You could put 'max 10 replicas' in the skill instructions. And 95% of the time, the LLM would follow it. But production SRE isn't about 95%. The hook is the seatbelt — it doesn't matter what the LLM thinks, the code enforces the limit."*
 
 **7:30** — **The one-liner:**  
-*"Skills teach the agent what to do. Hooks enforce what it can't do. Together: expertise with guardrails."*
+*"Skills teach the agent what to do. Hooks enforce what it can't do. Together: expertise with guardrails. The agent mitigates at 2 AM within the budget you set. Your team fixes the root cause at 10 AM. Nobody got paged."*
 
 **8:00** — Mention Review mode + hook levels  
 *"Hooks apply at the platform level — the platform team sets the floor. Individual service teams write their own skills. And you can combine hooks with Review mode for an extra layer of human approval."
