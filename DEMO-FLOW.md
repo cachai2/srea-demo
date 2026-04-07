@@ -62,97 +62,98 @@
 
 ---
 
-## Act 2: "It Catches Errors" — Layer 1: + Trigger (5 min)
+## Act 2 + 3: "It Catches Errors" → "Now It Knows Your App" — Layers 1-2 (10 min combined)
 
 ### The "So What"
-> "One webhook URL in your pipeline, and every deploy gets validated automatically."
+> "One webhook URL in your pipeline, and every deploy gets validated automatically. Add a skill, and it follows YOUR runbook — not generic best practices."
 
 ### Setup (done before the session)
 - Subagent `PostDeployValidator` configured — runs post-deploy health checks, queries App Insights for errors, traces to source code
 - HTTP trigger URL added as a post-deploy step in CI/CD pipeline
 - `generate-errors.ps1` ran earlier → 500 errors on `/orders/999` are in App Insights
 - **Skill NOT yet added** — that's the next layer
+- **Two browser tabs ready** — one for Thread 1 (no skill), one for Thread 2 (with skill)
 
-### Flow
+### Flow (interleaved — eliminates dead air)
+
+#### Phase 1: Kick off the generic run
 
 **0:00** — Set the scene  
 *"We just deployed v1.2 of our order-api. In our CI/CD pipeline, the last step calls the SRE Agent's HTTP trigger — a webhook URL that says 'hey, we just deployed, check if anything broke.'"*
 
-**0:30** — Show the HTTP trigger firing (or simulate by invoking the subagent)  
+**0:30** — **Invoke PostDeployValidator in Thread 1** (no skill)  
 *"The subagent kicks off automatically. No human involved. This is Layer 1 — we added a trigger."*
 
-*(*If audience seems skeptical, preempt:*) "Unit tests passed. Integration tests passed. But no test hit `/orders/999` because that order doesn't exist in the test database. Edge cases in production data are exactly what post-deploy validation is for."*
+#### Phase 2: While it runs — show the skill (Act 3 setup)
 
-**1:00** — Agent queries App Insights automatically  
-*"Watch — it's going to App Insights on its own. It correlated the deployment timestamp with the error spike."*
+**1:00** — Transition: *"While that runs, let me show you what we're about to add."*
 
-**1:30** — Agent finds `AttributeError: 'NoneType' object has no attribute 'get'` on `/orders/999`  
-*"It found 500 errors that started right after the deploy."*
-
-**2:00** — Agent searches GitHub → finds `app.py`, the `get_order` function  
-**PAUSE.** *"It went from a deployment spike in App Insights to the exact function in your Python code. The pipeline caught this — not a user, not a pager."*
-
-**2:30** — Let the audience feel the gap  
-*"This is good. It found the bug, it found the function. But look at the response — it's generic. 'NoneType in get_order, consider adding a null check.' It doesn't know this is our most common bug. It doesn't know our escalation policy. It doesn't know who to page."*
-
-**3:00** — Foreshadow the next layer  
-*"What if we could teach it our team's playbook?"*
-
-### Key talking points
-- "HTTP triggers integrate with any CI/CD system — GitHub Actions, Azure DevOps, Jenkins"
-- "One webhook URL, one subagent — every deploy is validated"
-- "Telemetry-to-code: App Insights → source line. That's the core loop."
-
-### Transition line
-> *"Layer 1: it catches errors. But it's a generic investigation. Let me add Layer 2."*
-
----
-
-## Act 3: "Now It Knows Your App" — Layer 2: + Skill (5 min)
-
-### The "So What"
-> "Same bug. Same agent. But now it follows YOUR runbook — not generic best practices. That's the difference between AI and YOUR AI."
-
-**This is THE demo.** The before/after contrast is the single most impactful moment. Let it breathe.
-
-### Flow
-
-**0:00** — *"Let me teach the agent our team's playbook."*
-
-**0:30** — Go to Builder → Skills → Create  
+**1:15** — Go to Builder → Skills → Create  
 *"I'm creating a Skill. It's a Markdown doc — our order-api runbook — with known issue patterns, remediation steps, and escalation policy."*
 
-**1:00** — Upload `order-api-runbook/SKILL.md`, attach tools  
-*"This is 3 years of our team's operational experience, codified into a document the agent can read."*
+**1:45** — Upload `order-api-runbook/SKILL.md`, attach tools  
+*"This is our team's operational experience — 4 known patterns, severity thresholds, who to page. Any SRE on your team could write this."*
 
-**1:30** — Briefly mention workspace mode  
-*"Skills require workspace mode — that gives the agent file read/write, terminal, and code execution in a sandboxed environment. It's enabled in agent settings."*
+**2:15** — Briefly mention workspace mode  
+*"Skills require workspace mode — file read/write, terminal, code execution in a sandbox. Already enabled."*
 
-**2:00** — Verify skill loaded (hot-reload pause)  
-Ask in chat: *"What skills do you have?"* Wait for the agent to confirm `order-api-runbook` is loaded. This takes ~10 seconds after adding the skill — the runtime refreshes asynchronously.
+**2:30** — Verify skill loaded (hot-reload)  
+Ask in chat: *"What skills do you have?"* Wait for the agent to confirm `order-api-runbook`. ~10 seconds.
 
-**2:15** — Re-invoke the same post-deploy check  
-*"Same trigger. Same bug. Watch what's different."*
+*(*If audience seems skeptical about the bug:*) "Unit tests passed. Integration tests passed. But no test hit `/orders/999` because that order doesn't exist in the test database. Edge cases in production data are exactly what post-deploy validation is for."*
 
-**2:30** — Agent loads skill automatically  
-*"See that? 'Skill loaded: order-api-runbook.' It recognized this is an order-api issue and loaded our playbook."*
+#### Phase 3: Come back to the generic run
 
-**3:00** — Agent matches to **Pattern 1: Null Order ID**  
-*"It didn't just find the bug — it matched it to a known pattern from our runbook. 'This is the known null order ID validation issue.'"*
+**3:00** — Transition: *"Let's go back — the first run is done. No skill, generic response."*
 
-**3:30** — Agent follows the runbook remediation  
-*"Per the runbook: create GitHub issue with label 'input-validation', proposed fix with null check, and — since error rate is above 5% — page @contoso-sre per escalation policy."*
+**3:15** — Switch to Thread 1 → walk through the results  
+*"It found 500 errors right after the deploy. Traced to the `get_order` function in `app.py`. Created a GitHub issue."*
 
-**4:00** — **PAUSE. Let this land.**  
+**3:45** — Let the audience feel the gap  
+*"This is good. It found the bug, it found the function. But look at the response — generic. 'NoneType in get_order, consider adding a null check.' It doesn't know this is our most common bug. It doesn't know our escalation policy. It doesn't know who to page."*
+
+**4:15** — Narrate the KQL  
+*"Look at the query it wrote — that's real KQL against your App Insights. You can copy this and run it yourself. Every step is auditable."*
+
+**4:30** — Talk about speed  
+*"This just did in 90 seconds what takes your on-call engineer 30-45 minutes — query App Insights, find the exception, search the codebase, trace to the exact function, propose a fix, and file a bug. And it's 2 AM. Nobody woke up."*
+
+#### Phase 4: Kick off the skilled run + continue talking
+
+**5:00** — **Open Thread 2. Re-invoke PostDeployValidator** (skill now loaded)  
+Transition: *"Now let's kick off the same investigation with the skill loaded. While that runs, let me show you what happened overnight."*
+
+**5:30** — **Begin previewing Act 4** while Act 3 runs  
+*"While the agent re-investigates with our runbook, let me show you Layer 3 — what happened while we were sleeping..."*  
+Navigate to Activities tab, start pointing at the LatencyIncidentHandler thread title.  
+*"The agent detected a latency spike overnight, scaled the container app, and filed a bug. We'll dig into this in a minute."*
+
+**6:00** — Glance at Thread 2 — if done, switch back. If not, continue Act 4 preview.
+
+#### Phase 5: The contrast (THE demo moment)
+
+**6:30** — Transition: *"And we're back — same bug, but look at the difference."*
+
+**6:45** — Switch to Thread 2 → walk through the skilled response  
+*"It didn't just find the bug — it matched it to Pattern 1: Null Order ID from our runbook."*
+
+**7:00** — Show the runbook-driven actions  
+*"Per the runbook: GitHub issue with label 'input-validation', proposed fix with null check, and — since error rate is above 5% — page @contoso-sre per escalation policy."*
+
+**7:30** — **PAUSE. Let this land.**  
 *"Same bug. Same agent. But instead of just 'NoneType in get_order,' we got: known pattern identified, runbook followed, issue created with the right labels, and the right team paged. All we added was a Markdown file."*
 
-**4:30** — Show the skill briefly  
-*"Here's what we uploaded — a Markdown doc with known issue patterns, escalation thresholds, and remediation steps. Any SRE on your team could write this. And it works everywhere — in the interactive agent, in the post-deploy trigger, in the incident trigger overnight."*
+**8:00** — The payoff line  
+*"That's the difference between AI and YOUR AI."*
 
-### Key talking points
-- "Skills are automatic — the agent decides when to load them based on relevance"
-- "The before/after shows the ROI of codifying your team's expertise"
-- "Any SRE can write a skill — it's Markdown, not code"
+**If either run finishes early while you're mid-explanation:** Just pause and say *"Oh, it's done already — let's look."* That's a good moment — it shows the agent is fast.
+
+### Key talking points (weave in during dead time)
+- "Setting this up took about 10 minutes — create the agent, connect the resource group, paste the YAML, done"
+- "How many of you have been paged at 2 AM for a 500 error? This is doing that whole triage workflow."
+- "Skills are Markdown — not code. Any SRE can write one. Put tribal knowledge in a file instead of a wiki nobody reads."
+- "Platform team sets hooks. Service teams write skills. That's the separation of concerns."
+- "The agent has no memory between runs. Each investigation starts clean."
 
 ### Transition line
 > *"Layer 1: it catches errors. Layer 2: it follows your playbook. But what happens when the agent needs to take action — not just investigate? And how do you keep it safe?"*
