@@ -1,13 +1,6 @@
 """
-Sample Order API — intentionally buggy for Azure SRE Agent demo.
-Deploy to Azure Container Apps or App Service, then let SREA find the bugs
-via source code integration.
-
-Known bugs planted:
-  1. /orders/<id> — unhandled None dereference when order not found (500)
-  2. /orders        — SQL-injection-style string formatting (flaggable)
-  3. /health        — DB connection string logged at INFO level (secret leak)
-  4. /slow          — sequential per-row processing causing latency spikes
+Order API - Sample service for Azure SRE Agent demo.
+Deploy to Azure Container Apps, monitor with Application Insights.
 """
 
 import os
@@ -60,15 +53,13 @@ def index():
 
 @app.route("/health")
 def health():
-    # BUG 3: Logging the full connection string (contains password)
-    logger.info(f"Health check OK — connected to {DB_CONNECTION_STRING}")
+    logger.info(f"Health check OK - connected to {DB_CONNECTION_STRING}")
     return jsonify({"status": "healthy", "db": "connected"})
 
 
 @app.route("/orders")
 def list_orders():
     status_filter = request.args.get("status", "")
-    # BUG 2: Naive string interpolation instead of parameterized query
     query = f"SELECT * FROM orders WHERE status = '{status_filter}'"
     logger.info(f"Executing query: {query}")
 
@@ -83,14 +74,13 @@ def list_orders():
 @app.route("/orders/<order_id>")
 def get_order(order_id):
     order = ORDERS.get(order_id)
-    # BUG 1: No null check — accessing .get("item") on None raises 500
     item_name = order.get("item")
     return jsonify({"order_id": order_id, "item": item_name, "detail": order})
 
 
 @app.route("/slow")
 def slow_endpoint():
-    """BUG 4: Slow sequential processing — loops with a sleep per 'row'."""
+    """Process all orders with per-row enrichment."""
     results = []
     for oid, order in ORDERS.items():
         time.sleep(0.5)  # simulates individual DB round-trip
