@@ -1,7 +1,6 @@
-# Azure SRE Agent — LevelUp Demo (April 7, 2026)
+# Azure SRE Agent Demo
 
-> Demo materials for the Azure SRE Agent GA Features LevelUp session.
-> See [demoSpec.md](demoSpec.md) for the full spec and [DEMO-FLOW.md](DEMO-FLOW.md) for the scripted run-of-show.
+> Deploy a sample app, connect an SRE Agent, and watch it catch errors, follow your runbook, scale with guardrails, and find security risks — all autonomously.
 
 ## Narrative
 
