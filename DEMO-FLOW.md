@@ -84,39 +84,41 @@
 **0:30** — **Invoke PostDeployValidator in Thread 1** (no skill)  
 *"The subagent kicks off automatically. No human involved. This is Layer 1 — we added a trigger."*
 
-#### Phase 2: While it runs — show the skill (Act 3 setup)
+#### Phase 2: While it runs — show the prompt + add the skill
 
-**1:00** — Transition: *"While that runs, let me show you what we're about to add."*
+**1:00** — Transition: *"While that investigates, let me show you what's behind this trigger."*
 
-**1:15** — Go to Builder → Skills → Create  
-*"I'm creating a Skill. It's a Markdown doc — our order-api runbook — with known issue patterns, remediation steps, and escalation policy."*
+**1:15** — Show the PostDeployValidator subagent prompt  
+*"Three sentences. Check for errors, anomalies, or regressions. Trace to source code. Create a GitHub issue. That's the entire prompt — the agent figures out the rest. What KQL to write, where to search, how to format the issue."*
 
-**1:45** — Upload `order-api-runbook/SKILL.md`, attach tools  
-*"This is our team's operational experience — 4 known patterns, severity thresholds, who to page. Any SRE on your team could write this."*
+**1:45** — *"But right now, that's all it has — a generic investigation workflow. Let me teach it our team's playbook."*
 
-**2:15** — Briefly mention workspace mode  
-*"Skills require workspace mode — file read/write, terminal, code execution in a sandbox. Already enabled."*
+**2:00** — Go to Builder → Skills → Create  
+*"I'm creating a Skill — a Markdown doc with our team's known issue patterns, remediation steps, and escalation policy. Any SRE could write this."*
 
-**2:30** — Verify skill loaded (hot-reload)  
-Ask in chat: *"What skills do you have?"* Wait for the agent to confirm `order-api-runbook`. ~10 seconds.
+**2:30** — Upload `order-api-runbook/SKILL.md`, no tools needed  
+*"4 known patterns, severity thresholds, who to page. Three years of operational experience in one Markdown file."*
 
-*(*If audience seems skeptical about the bug:*) "Unit tests passed. Integration tests passed. But no test hit `/orders/999` because that order doesn't exist in the test database. Edge cases in production data are exactly what post-deploy validation is for."*
+**2:45** — Verify skill loaded (hot-reload)  
+Ask in chat: *"What skills do you have?"* Wait for confirmation. ~10 seconds.
 
 #### Phase 3: Come back to the generic run
 
 **3:00** — Transition: *"Let's go back — the first run is done. No skill, generic response."*
 
 **3:15** — Switch to Thread 1 → walk through the results  
-*"It found 500 errors right after the deploy. Traced to the `get_order` function in `app.py`. Created a GitHub issue."*
+*"From that three-sentence prompt: it queried App Insights, wrote its own KQL, found 500s on `/orders/999`, traced to the `get_order` function in `app.py`, proposed a fix, and filed a GitHub issue. All in 90 seconds."*
 
-**3:45** — Let the audience feel the gap  
-*"This is good. It found the bug, it found the function. But look at the response — generic. 'NoneType in get_order, consider adding a null check.' It doesn't know this is our most common bug. It doesn't know our escalation policy. It doesn't know who to page."*
+**3:45** — *"CI/CD missed this because no test hit `/orders/999` — that order doesn't exist in the test database. Post-deploy validation catches edge cases from production data."*
 
-**4:15** — Narrate the KQL  
-*"Look at the query it wrote — that's real KQL against your App Insights. You can copy this and run it yourself. Every step is auditable."*
+**4:00** — Show the KQL briefly  
+*"Look at the query it wrote — real KQL against your App Insights. You can copy this and run it yourself. Every step is auditable — not a black box."*
 
-**4:30** — Talk about speed  
-*"This just did in 90 seconds what takes your on-call engineer 30-45 minutes — query App Insights, find the exception, search the codebase, trace to the exact function, propose a fix, and file a bug. And it's 2 AM. Nobody woke up."*
+**4:15** — Let the audience feel the gap  
+*"This is impressive. But look at the response — it's generic. 'NoneType in get_order, consider null check.' It doesn't know this is our most common bug. It doesn't know our escalation policy. It doesn't know who to page."*
+
+**4:30** — Mention the trust dial  
+*"Right now it creates an issue — that's our team's workflow. But you could just as easily tell it to open a PR with the fix. That's a trust dial you control."*
 
 #### Phase 4: Kick off the skilled run + continue talking
 
