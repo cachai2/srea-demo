@@ -123,8 +123,13 @@ bash scripts/generate-errors.sh rg-srea-demo
 3. Click **Edit** → **YAML** tab → paste contents of `subagents/incident-error-handler.yaml`
 4. Update the email recipient in the YAML to your email address
 5. Click **Save**
-6. Set up the **HTTP Trigger** → copy the webhook URL
-7. Add the webhook URL as a post-deploy step in your CI/CD pipeline
+6. Set up the **HTTP Trigger**:
+   - Trigger name: `PostDeployValidator`
+   - Response subagent: `PostDeployValidator`
+   - Trigger details: `Validate the order-api Container App deployment in rg-srea-demo. Check for errors, anomalies, or regressions. If errors found, trace to source code and create a GitHub issue. Check for any relevant skills and use them to match findings against known patterns.`
+   - Agent autonomy: **Autonomous**
+   - Message grouping: **New chat thread for each run**
+7. Copy the webhook URL for CI/CD integration
 
 > **Note:** Filename is legacy (`incident-error-handler.yaml`); the subagent name in the portal is `PostDeployValidator`.
 
@@ -137,6 +142,8 @@ bash scripts/generate-errors.sh rg-srea-demo
 5. Click **Save**
 6. Go to **Incident Triggers** → **+ New Incident Trigger**
    - Name: `Order API Latency Spike`
+   - Incident platform: **Azure Monitor**
+   - Title contains: `order-api-demo-high-latency`
    - Response Subagent: `LatencyIncidentHandler`
    - Processing Mode: **Autonomous**
 7. Click **Create**
@@ -160,7 +167,7 @@ bash scripts/generate-errors.sh rg-srea-demo
    - Message Grouping: **New thread for each run**
 7. Click **Save**
 
-### 9. Connect Outlook
+### 9. Connect Outlook (optional)
 
 1. Builder → Connectors → **Outlook**
 2. Login with your Microsoft 365 email
@@ -178,6 +185,24 @@ bash scripts/generate-errors.sh rg-srea-demo
 ### 11. Enable Workspace Mode (required for Act 3 skills)
 
 1. Go to agent **Settings** → enable **Workspace Mode**
+2. This gives the agent file operations, terminal, code execution in a sandbox
+3. Required for the skill toggle in Act 3
+
+### 11b. Grant Key Vault Reader to Agent (required for Act 5)
+
+The DailySecurityScan needs to read Key Vault certificates. Grant the agent's managed identity Key Vault Reader:
+
+```bash
+# Get the agent's managed identity principal ID
+AGENT_MI=$(az identity show --name <agent-managed-identity-name> -g rg-srea-demo --query principalId -o tsv)
+
+# Get the Key Vault name
+KV_NAME=$(az deployment group show -g rg-srea-demo -n main --query properties.outputs.keyVaultName.value -o tsv)
+
+# Grant Key Vault Reader
+az role assignment create --assignee $AGENT_MI --role "Key Vault Reader" \
+  --scope "/subscriptions/<sub-id>/resourceGroups/rg-srea-demo/providers/Microsoft.KeyVault/vaults/$KV_NAME"
+```
 2. This gives the agent file operations, terminal, code execution in a sandbox
 3. Required for the skill toggle in Act 3
 
