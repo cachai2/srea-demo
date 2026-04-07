@@ -28,17 +28,11 @@ srea-levelup-demo/
 │   ├── latency-incident-handler.yaml #  Act 4: LatencyIncidentHandler (incident trigger)
 │   └── scheduled-health-check.yaml  #   Act 5: DailySecurityScan (scheduled task)
 ├── hooks/                  # Agent hook configurations
-│   ├── posttooluse-scaling-guardrail.yaml  #  Act 4: Max 10 replicas (command hook)
-│   ├── stop-quality-gate.yaml      #   (Optional) Stop hook — response quality gate
-│   ├── posttooluse-safety.yaml     #   (Optional) PostToolUse hook — block dangerous cmds
-│   └── posttooluse-audit.yaml      #   (Optional) PostToolUse hook — audit all tool calls
+│   └── scaling-guardrail.py        #  Act 4: Max 10 replicas (paste into portal hook editor)
 ├── skills/                 # Skill definitions
-│   ├── order-api-runbook/          #   Act 3: Order API incident response guide
-│   │   ├── SKILL.md        #     Known patterns, remediation, escalation policy
-│   │   └── skill.yaml      #     Skill definition (name, description, tools)
-│   └── aks-troubleshooting/        #   (Optional) AKS troubleshooting guide
-│       ├── SKILL.md
-│       └── skill.yaml
+│   └── order-api-runbook/          #   Act 3: Order API incident response guide
+│       ├── SKILL.md        #     Known patterns, remediation, escalation policy
+│       └── skill.yaml      #     Skill definition (name, description, tools)
 ├── infra/
 │   └── main.bicep          #   ACR + Container App + App Insights + Key Vault + Alerts
 ├── scripts/
@@ -176,9 +170,10 @@ bash scripts/generate-errors.sh rg-srea-demo
 ### 10. Apply Scaling Guardrail Hook (Act 4)
 
 1. Go to **Hooks** → **Create hook**
-2. Paste contents of `hooks/posttooluse-scaling-guardrail.yaml`
-3. Apply at **agent level** (applies to all subagents)
-4. Click **Save**
+2. Settings: Event type: **PostToolUse**, Hook type: **Command**, Language: **Python**, Activation: **Always**, Fail mode: **Block**, Timeout: **30**
+3. Paste the Python script from `hooks/scaling-guardrail.py`
+4. Apply at **agent level** (applies to all subagents)
+5. Click **Save**
 
 ### 11. Enable Workspace Mode (required for Act 3 skills)
 

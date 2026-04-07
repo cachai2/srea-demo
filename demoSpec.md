@@ -116,11 +116,11 @@ Instead of showing three independent triggers finding three independent bugs, we
 |--------|--------|
 | **Goal** | Show proactive security scanning for issues with no runtime symptoms |
 | **Live or pre-run?** | **PRE-RUN** — walk through morning scan results (or Run Now) |
-| **Business impact** | Cert expiry would have been a full outage in 7 days. Agent caught it proactively. |
+| **Business impact** | Cert expiry would have been a full outage in ~30 days. Agent caught it proactively. |
 | **Layer-added moment** | Briefly say: *"I set this up yesterday — one cron schedule, one subagent, same pattern you've seen. That's Layer 4."* |
-| **Key moment** | Agent finds cert expiring in 7 days (primary — deterministic) + SQL injection attempts in logs (bonus — depends on log data), creates GitHub issues for both |
+| **Key moment** | Agent finds cert expiring in ~30 days (primary) + SQL injection attempts in logs (bonus — depends on log data), creates GitHub issues for both |
 | **Features** | Scheduled Tasks |
-| **Bugs** | Key Vault cert expiring in 7 days (primary), SQL injection probes in App Insights logs (secondary) |
+| **Bugs** | Key Vault cert expiring in ~30 days (primary), SQL injection probes in App Insights logs (secondary) |
 | **Subagent** | `DailySecurityScan` (Reader access) |
 | **Risk** | Medium — depends on agent actually finding both issues |
 | **Fallback** | Click Run Now. If too slow or wrong results, show screenshot of prior run. |
@@ -152,7 +152,7 @@ Instead of showing three independent triggers finding three independent bugs, we
 | 2 | `/slow` | Sequential processing — `for` loop with `time.sleep(0.5)` per row | 200 (slow) | Act 4: latency under EU load — agent detects + mitigates (not deep dependency tracing; `time.sleep` doesn't produce DB dependency telemetry) |
 | 3 | `/orders?status=x` | SQL injection — f-string interpolation of user input into query | 200 | Act 5: agent finds injection probes in App Insights request logs |
 | 4 | `/health` | Secret leak — connection string with password logged at INFO | 200 | (Bug still exists but not demoed — caught by CI/CD SAST tools) |
-| 5 | Key Vault cert | `order-api-tls` self-signed cert expires in 7 days | N/A | Act 5: agent checks Key Vault cert expiry (deterministic) |
+| 5 | Key Vault cert | `order-api-tls` self-signed cert expires in ~30 days | N/A | Act 5: agent checks Key Vault cert expiry |
 
 ### Key app detail
 
@@ -168,11 +168,10 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 | `subagents/incident-error-handler.yaml` | PostDeployValidator subagent (Reader) — **Note: filename is legacy; subagent name in portal is PostDeployValidator** | Acts 2-3 |
 | `subagents/latency-incident-handler.yaml` | LatencyIncidentHandler subagent (Contributor) | Act 4 |
 | `subagents/scheduled-health-check.yaml` | DailySecurityScan subagent (Reader) | Act 5 |
-| `hooks/posttooluse-scaling-guardrail.yaml` | Max 10 replicas guardrail | Act 4 |
+| `hooks/scaling-guardrail.py` | Max 10 replicas guardrail (paste into portal hook editor) | Act 4 |
 | `skills/order-api-runbook/SKILL.md` | Known patterns, remediation, escalation | Act 3 |
 | `skills/order-api-runbook/skill.yaml` | Skill definition | Act 3 |
-| `skills/aks-troubleshooting/SKILL.md` | AKS guide (optional, mention only) | — |
-| `infra/main.bicep` | ACR + Container App + App Insights + Alert Rule | Setup |
+| `infra/main.bicep` | ACR + Container App + App Insights + Key Vault + Alert Rules | Setup |
 | `scripts/generate-errors.ps1` | Generate telemetry: 500s, `/slow` latency, SQL injection probes | Setup |
 | `scripts/generate-errors.sh` | Generate telemetry (Linux/macOS) | Setup |
 
@@ -199,7 +198,7 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 - *"Platform team sets hooks. Service teams write skills."*
 - *"Same bug, same agent — but now it follows our runbook, not generic best practices."*
 - *"That's the difference between AI and YOUR AI."*
-- *"A cert expires in 7 days. No alert fires. In 7 days, your app is down."*
+- *"A cert expires in 30 days. No alert fires. In 30 days, your app is down."*
 - *"Someone is probing your API with SQL injection. Every request returned 200. Only a log scan catches this."*
 - *"All you added was one trigger, one skill, one hook, one task."*
 
@@ -233,7 +232,7 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 | T-1 hour | App Insights has SQLi probes — run `az monitor app-insights query --app <app> --analytics-query "requests \| where timestamp > ago(12h) and url contains 'status=' and url contains 'OR' \| count"`. Expect ≥10. **Act 5 needs these.** | ☐ |
 | T-1 hour | Azure Monitor alert `order-api-demo-500-errors` has fired — check Alerts blade or `az monitor metrics alert show`. If not fired, the incident trigger won't have run. **Act 4 depends on this.** | ☐ |
 | T-30 min | Workspace mode is ON | ☐ |
-| T-30 min | Cert `order-api-tls` expiry is 5-10 days out. If not, recreate. | ☐ |
+| T-30 min | Cert `order-api-tls` expiry is ~30 days out (created with 1-month validity). Note the exact date for narration. | ☐ |
 | T-30 min | HTTP trigger subagent configured | ☐ |
 | T-15 min | Logged into sre.azure.com, agent responds | ☐ |
 | T-10 min | Subagent Builder tab open | ☐ |
