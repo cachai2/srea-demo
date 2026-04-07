@@ -20,7 +20,7 @@ spec:
 
     2) Error detection
     - Query App Insights for exceptions and failed requests (5xx) in the
-      post-deploy window (last 15 minutes).
+      post-deploy window (last 2 hours).
     - Include exact KQL queries, sample results, counts, and UTC timestamps.
     - If no errors found, report deployment healthy and stop.
 
