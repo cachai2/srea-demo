@@ -28,17 +28,27 @@ for i in $(seq 1 $ROUNDS); do
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/orders/999") || true
   echo "  /orders/999        → $STATUS (expect 500)"
 
-  # Bug 2: SQL injection pattern in query param
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/orders?status=shipped'%20OR%201=1--") || true
-  echo "  /orders?status=sqli → $STATUS (expect 200)"
+  # Bug 2: SQL injection probes — multiple patterns so the agent sees a realistic attack
+  for payload in \
+    "shipped'%20OR%201=1--" \
+    "shipped'%20UNION%20SELECT%20NULL--" \
+    "shipped';%20DROP%20TABLE%20orders--" \
+    "shipped'%20AND%201=1--"; do
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/orders?status=$payload") || true
+    echo "  /orders?status=sqli → $STATUS (expect 200)"
+  done
 
   # Bug 3: Secret leak — health endpoint logs connection string
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/health") || true
   echo "  /health             → $STATUS (expect 200)"
 
-  # Bug 4: Slow endpoint — N+1 pattern
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/slow") || true
-  echo "  /slow               → $STATUS (expect 200)"
+  # Bug 4: Slow endpoint — CONCURRENT requests to spike p95 latency
+  # Sequential calls won't trigger the alert — need parallel load
+  for j in 1 2 3 4 5; do
+    curl -s -o /dev/null "$APP_URL/slow" &
+  done
+  wait
+  echo "  /slow x5 concurrent → done (expect ~5s each)"
 
   # Normal traffic so failures stand out
   curl -s -o /dev/null "$APP_URL/" || true

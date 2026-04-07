@@ -1,228 +1,338 @@
 # Demo Run-of-Show — Principal PM Perspective
 
 **Session:** Azure SRE Agent GA Features LevelUp  
-**Total runtime:** ~40 min (fits 45-min slot with 5 min buffer)  
+**Total runtime:** ~32 min (fits 45-min slot with 13 min buffer for delays + Q&A)  
 **Audience:** SREs, platform engineers, IT decision-makers  
 
 ---
 
 ## Narrative Arc
 
-**One sentence**: "Azure SRE Agent gives your team an AI teammate that investigates production issues end-to-end — from Azure telemetry to your source code — with enterprise guardrails and your team's own expertise baked in."
+**One sentence**: "Watch the same agent go from 'I found a 500' to 'I matched your known pattern, followed your runbook, scaled your pods within policy, and found a cert nobody knew was expiring.' All you added was one trigger, one skill, one hook, one task."
 
-**The journey**:
-1. **Setup is instant** — you're productive in 2 minutes (Demo 1)
-2. **It connects the dots you can't** — telemetry → root cause → line of code (Demo 2)
-3. **You stay in control** — guardrails, not guard rails (Demo 3)
-4. **It learns your playbook** — your expertise, always on (Demo 4)
+**The story**: Instead of showing three independent triggers finding three independent bugs, we show **one agent getting smarter as you invest in it**. Each layer is ~5 minutes of config with a visible payoff. The audience sees compounding value — and it mirrors real customer adoption.
+
+| Layer | What you add | What improves | Time |
+|-------|-------------|---------------|------|
+| 0. Bare agent | Pre-created, resources connected | Knows your infra | 1 min |
+| 1. + Trigger | HTTP Trigger from CI/CD | Catches the 500, generic investigation | 5 min |
+| 2. + Skill | order-api-runbook | Same bug → known pattern, runbook, right team paged | 5 min |
+| 3. + Hook | Scaling guardrail | Incident trigger scales pods, hook enforces max 10 | 10 min |
+| 4. + Scheduled Task | Daily security scan | Finds cert expiry + injection probes — things with no errors | 8 min |
+
+**Why this works:**
+1. **ROI at each step** — each layer is an incremental investment with a visible payoff
+2. **The skill toggle is THE demo** — Layer 1 → Layer 2 is the single most impactful transition
+3. **Mirrors real adoption** — Phase 1: create agent. Phase 2: add trigger. Phase 3: write skill. Phase 4: add hooks + scheduled tasks. Go at your own pace.
+4. **Natural escalation of trust** — bare → read-only triggers → knowledge → write access with guardrails → autonomous scanning
 
 ---
 
 ## Pre-Show Checklist (Day-of)
 
-- **T-30 min** — Run `.\scripts\generate-errors.ps1` → verify status codes all correct
+- **T-12 hours** — Run `.\scripts\generate-errors.ps1` → generates 500s, `/slow` latency data, and SQL injection probe traffic. Telemetry ingests in 2-5 min, but the 12-hour lead time is needed for the Azure Monitor alert to fire and the incident trigger to complete its full investigation overnight. Also ensure container image is tagged `1.2.0` (not `latest`) so the agent can correlate "v1.2.0 deployed at 4:03 PM" with the error spike.
+- **T-1 hour** — Verify: incident trigger completed (check Activities tab — agent should have scaled pods and created GitHub issue), scheduled task ran at 8 AM
+- **T-1 hour** — Verify App Insights has 500 exceptions on `/orders/999`: run `az monitor app-insights query --app <app> --analytics-query "exceptions | where timestamp > ago(12h) | count"` — if zero, re-run `generate-errors.ps1` and wait 5 min for ingestion. **Act 2 is dead without these.**
+- **T-30 min** — Verify: HTTP trigger subagent is configured and ready for live demo. Verify workspace mode is **ON** for skills. Verify cert `order-api-tls` expiry is 5-10 days out (`az keyvault certificate show --vault-name <vault> -n order-api-tls --query attributes.expires -o tsv`). If not, recreate it.
 - **T-15 min** — Open [sre.azure.com](https://sre.azure.com), log in, have agent ready → confirm agent responds to "hello"
-- **T-10 min** — Open a second browser tab with Builder → Hooks (empty)
-- **T-5 min** — Open a third tab with Builder → Skills (empty)
-- **T-2 min** — Clear agent chat history so demo starts clean
-- **Backup** — Have screenshots of each demo's happy path accessible offline
+- **T-10 min** — Open a second browser tab with Builder → Subagent Builder (show configured subagents)
+- **T-10 min** — Verify GitHub connection: ask the agent *"Search my repos for order-api"* — if OAuth token expired, re-authorize now
+- **T-5 min** — **⚠️ CRITICAL:** Verify order-api-runbook skill is **NOT** yet added. If someone pre-configured it, DELETE it now. The entire Act 3 before/after contrast depends on adding it live.
+- **T-5 min** — Verify scaling guardrail hook IS applied (for Act 4).
+- **T-2 min** — Clear agent chat history so interactive demo starts clean
+- **Backup** — Have screenshots of each act's happy path accessible offline
 
 ---
 
-## Demo 1: Getting Started (5 min)
+## Act 1: "Meet Your Agent" — Layer 0 (1 min)
 
 ### The "So What"
-> "You don't need a Terraform module, a Helm chart, or a weekend. This takes 2 minutes."
+> "You deploy this alongside your app and it's ready in 2 minutes."
 
 ### Flow
 
-**0:00** — Click **Create agent**  
-*"Let's start from zero. I'm going to create an SRE agent right now."*
+**0:00** — Show the pre-created agent in [sre.azure.com](https://sre.azure.com)  
+*"Here's our SRE agent. It's monitoring a Python order-api running on Azure Container Apps — Container App, App Insights, Key Vault, Log Analytics. Setting this up took 2 minutes — pick a subscription, pick a resource group, pick permissions, deploy."*
 
-**0:30** — Walk through wizard — subscription, RG, region  
-*"Three choices: what subscription, which resource groups to monitor, and what permissions."*
-
-**1:00** — Select **Reader** permission  
-*"Reader is the safe default — the agent can see everything but can't change anything. You can always escalate later."*
-
-**1:30** — Click Deploy → **switch to pre-created agent**  
-*"Deployment takes about a minute. Let me jump to one I set up earlier."*
-
-**2:00** — Ask: *"What Azure resources can you see?"*  
-*"First thing I always ask — make sure it can see my environment."*
-
-**3:00** — Show auto-generated resource summary  
-*"It immediately mapped out my Container App, App Insights, ACR, Log Analytics — no configuration needed."*
-
-**3:30** — Ask: *"Are there any unhealthy resources?"*  
-*"And now we're already doing SRE work."*
-
-**4:30** — Pause on response. Let the audience absorb.
+**0:30** — Brief portal orientation  
+*"Over here: Subagent Builder for automation, Skills for team expertise, Hooks for guardrails. We'll add each of these — one at a time — over the next 30 minutes. And you'll see the agent get smarter with each layer."*
 
 ### Transition line
-> *"OK, so we have an agent. But any monitoring tool can list resources. Let me show you what makes this different."*
+> *"Right now, it knows what we have. It can answer questions about our resources. But it's passive — it waits for you to ask. Let's make it proactive."*
 
 ---
 
-## Demo 2: Source Code Integration (10 min)
+## Act 2: "It Catches Errors" — Layer 1: + Trigger (5 min)
 
 ### The "So What"
-> "When your app throws a 500 at 2 AM, you don't need a dashboard — you need someone to find the line of code. This does that."
+> "One webhook URL in your pipeline, and every deploy gets validated automatically."
 
-**This is the money demo.** Land the telemetry-to-code moment. Pause when the agent shows the file and line number — let it breathe.
+### Setup (done before the session)
+- Subagent `PostDeployValidator` configured — runs post-deploy health checks, queries App Insights for errors, traces to source code
+- HTTP trigger URL added as a post-deploy step in CI/CD pipeline
+- `generate-errors.ps1` ran earlier → 500 errors on `/orders/999` are in App Insights
+- **Skill NOT yet added** — that's the next layer
 
 ### Flow
 
-**0:00** — Ask: *"My order-api is returning 500 errors. Can you investigate?"*  
-*"This is the prompt I'd send at 2 AM. Plain English."*
+**0:00** — Set the scene  
+*"We just deployed v1.2 of our order-api. In our CI/CD pipeline, the last step calls the SRE Agent's HTTP trigger — a webhook URL that says 'hey, we just deployed, check if anything broke.'"*
 
-**0:30** — Agent queries App Insights automatically  
-*"Watch — it's going to App Insights on its own. I didn't tell it where to look."*
+**0:30** — Show the HTTP trigger firing (or simulate by invoking the subagent)  
+*"The subagent kicks off automatically. No human involved. This is Layer 1 — we added a trigger."*
 
-**1:30** — Agent finds `AttributeError: NoneType` on `/orders/999`  
-*"It found the exception. But here's where it gets interesting..."*
+*(*If audience seems skeptical, preempt:*) "Unit tests passed. Integration tests passed. But no test hit `/orders/999` because that order doesn't exist in the test database. Edge cases in production data are exactly what post-deploy validation is for."*
 
-**2:00** — Agent searches GitHub → finds `app.py` line ~81  
-**PAUSE.** *"It just went from an App Insights exception... to the exact line of Python code causing it. No runbook. No context-switching."*
+**1:00** — Agent queries App Insights automatically  
+*"Watch — it's going to App Insights on its own. It correlated the deployment timestamp with the error spike."*
 
-**3:00** — Let audience absorb. This is your applause moment.
+**1:30** — Agent finds `AttributeError: 'NoneType' object has no attribute 'get'` on `/orders/999`  
+*"It found 500 errors that started right after the deploy."*
 
-**3:30** — Ask: *"Are there any other issues in this codebase?"*  
-*"Let's see what else it finds."*
+**2:00** — Agent searches GitHub → finds `app.py`, the `get_order` function  
+**PAUSE.** *"It went from a deployment spike in App Insights to the exact function in your Python code. The pipeline caught this — not a user, not a pager."*
 
-**4:30** — Agent finds SQL injection, secret leak, N+1  
-*"Three more issues — a SQL injection pattern, a password being logged, and an N+1 query. All from one prompt."*
+**2:30** — Let the audience feel the gap  
+*"This is good. It found the bug, it found the function. But look at the response — it's generic. 'NoneType in get_order, consider adding a null check.' It doesn't know this is our most common bug. It doesn't know our escalation policy. It doesn't know who to page."*
 
-**6:00** — Ask: *"Create a GitHub issue for the null dereference bug"*  
-*"And now — let's actually do something about it."*
-
-**7:00** — Agent creates GitHub issue  
-*"Issue created, assigned, labeled. From investigation to action in one conversation."*
-
-### Key talking points (weave in, don't bullet-dump)
-- "Semantic search, not grep — it understands what the code does, not just string matching"
-- "This works with GitHub and Azure DevOps"
-- "The agent correlates across telemetry and code — that's the superpower"
-
-### Transition line
-> *"So the agent is powerful. But powerful AI without guardrails is a risk. Let me show you how we handle that."*
-
----
-
-## Demo 3: Agent Hooks (10 min)
-
-### The "So What"
-> "Enterprises need AI they can audit and constrain. Hooks let you enforce policy on every agent action — without slowing it down."
-
-### Flow
-
-#### 3A — Quality gate
-
-**0:00** — Ask the agent something, show normal response  
-*"Right now, the agent responds however it wants. Let's add a quality gate."*
-
-**0:30** — Go to Builder → Hooks → Create, paste stop hook config  
-*"This is a Stop hook. It runs after every response and checks: did the agent include a completion marker?"*
-
-**1:30** — Ask the agent something again  
-*"Watch what happens."*
-
-**2:00** — Hook rejects → agent retries → adds "Task complete."  
-*"The hook rejected it. The agent got feedback, adjusted, and tried again. Automatic."*
-
-**2:30** — Briefly show the rejection flow in UI  
-*"You can see the rejection reason right here. Full transparency."*
-
-#### 3B — Safety hook
-
-**3:30** — Add the posttooluse-safety.yaml hook  
-*"Now let's add a safety hook. This one intercepts shell commands."*
-
-**4:30** — Ask: *"Clean up old files by running rm -rf /tmp/old-data"*  
-*"I'm going to ask it to do something dangerous."*
-
-**5:00** — Agent attempts command → hook blocks it  
-*"Blocked. The hook pattern-matched rm -rf and stopped it before execution. Not after."*
-
-**5:30** — Show the block message  
-*"The agent gets a policy violation message — it knows why, and the human reviewing gets an audit trail."*
-
-**6:00** — (Optional) Show agent-level vs custom-agent-level hooks  
-*"You can set these at the platform level or per-agent. Platform team sets the floor, individual teams customize."*
+**3:00** — Foreshadow the next layer  
+*"What if we could teach it our team's playbook?"*
 
 ### Key talking points
-- "Two types: prompt hooks for judgment calls, command hooks for deterministic rules"
-- "maxRejections prevents infinite loops — the agent stops after N attempts"
-- "This is how you get from 'AI experiment' to 'AI in production'"
-
-### Skip 3C (audit hook) unless you're running ahead of schedule.
+- "HTTP triggers integrate with any CI/CD system — GitHub Actions, Azure DevOps, Jenkins"
+- "One webhook URL, one subagent — every deploy is validated"
+- "Telemetry-to-code: App Insights → source line. That's the core loop."
 
 ### Transition line
-> *"So we can control the agent. But can we teach it? Let's give it our team's expertise."*
+> *"Layer 1: it catches errors. But it's a generic investigation. Let me add Layer 2."*
 
 ---
 
-## Demo 4: Skills (10 min)
+## Act 3: "Now It Knows Your App" — Layer 2: + Skill (5 min)
 
 ### The "So What"
-> "Your best SRE's troubleshooting playbook — available 24/7, to every team member, executed automatically."
+> "Same bug. Same agent. But now it follows YOUR runbook — not generic best practices. That's the difference between AI and YOUR AI."
+
+**This is THE demo.** The before/after contrast is the single most impactful moment. Let it breathe.
 
 ### Flow
 
-**0:00** — Ask: *"My AKS cluster has pods in CrashLoopBackOff, what should I do?"*  
-*"Let's ask about an AKS issue."*
+**0:00** — *"Let me teach the agent our team's playbook."*
 
-**0:30** — Agent gives a generic answer  
-*"That's fine. Generic best practices. But my team has a specific procedure we've refined over 3 years."*
+**0:30** — Go to Builder → Skills → Create  
+*"I'm creating a Skill. It's a Markdown doc — our order-api runbook — with known issue patterns, remediation steps, and escalation policy."*
 
-**1:00** — Pause  
-*"Let me teach the agent our playbook."*
+**1:00** — Upload `order-api-runbook/SKILL.md`, attach tools  
+*"This is 3 years of our team's operational experience, codified into a document the agent can read."*
 
-**1:30** — Go to Builder → Skills → Create  
-*"I'm creating a Skill. It's a Markdown doc — my team's troubleshooting guide — plus the tools the agent needs to execute it."*
+**1:30** — Briefly mention workspace mode  
+*"Skills require workspace mode — that gives the agent file read/write, terminal, and code execution in a sandboxed environment. It's enabled in agent settings."*
 
-**2:30** — Upload SKILL.md, attach RunAzCliReadCommands  
-*"Here's our 6-step AKS guide. And I'm giving it access to read-only Azure CLI commands."*
+**2:00** — Verify skill loaded (hot-reload pause)  
+Ask in chat: *"What skills do you have?"* Wait for the agent to confirm `order-api-runbook` is loaded. This takes ~10 seconds after adding the skill — the runtime refreshes asynchronously.
 
-**3:30** — Ask the **same question** again  
-*"Same question. Watch the difference."*
+**2:15** — Re-invoke the same post-deploy check  
+*"Same trigger. Same bug. Watch what's different."*
 
-**4:00** — Agent loads skill automatically  
-*"See that? 'Skill loaded.' It recognized the question was about AKS and loaded our guide automatically."*
+**2:30** — Agent loads skill automatically  
+*"See that? 'Skill loaded: order-api-runbook.' It recognized this is an order-api issue and loaded our playbook."*
 
-**5:00** — Agent follows the 6-step procedure, runs az commands  
-*"Step 1: cluster health. Step 2: pod status. It's running our playbook, not improvising."*
+**3:00** — Agent matches to **Pattern 1: Null Order ID**  
+*"It didn't just find the bug — it matched it to a known pattern from our runbook. 'This is the known null order ID validation issue.'"*
 
-**7:00** — Show structured output side-by-side with generic answer  
-**PAUSE.** *"Same question. Left: generic. Right: your team's expertise, executed live."*
+**3:30** — Agent follows the runbook remediation  
+*"Per the runbook: create GitHub issue with label 'input-validation', proposed fix with null check, and — since error rate is above 5% — page @contoso-sre per escalation policy."*
+
+**4:00** — **PAUSE. Let this land.**  
+*"Same bug. Same agent. But instead of just 'NoneType in get_order,' we got: known pattern identified, runbook followed, issue created with the right labels, and the right team paged. All we added was a Markdown file."*
+
+**4:30** — Show the skill briefly  
+*"Here's what we uploaded — a Markdown doc with known issue patterns, escalation thresholds, and remediation steps. Any SRE on your team could write this. And it works everywhere — in the interactive agent, in the post-deploy trigger, in the incident trigger overnight."*
 
 ### Key talking points
 - "Skills are automatic — the agent decides when to load them based on relevance"
-- "Custom agents are different — those are invoked explicitly, like a specialist you page"
-- "You can attach CLI, Kusto, Python, MCP, or Link tools to any skill"
-- "Think of it as: Skills are procedures. Custom agents are personas. Knowledge files are reference docs."
+- "The before/after shows the ROI of codifying your team's expertise"
+- "Any SRE can write a skill — it's Markdown, not code"
+
+### Transition line
+> *"Layer 1: it catches errors. Layer 2: it follows your playbook. But what happens when the agent needs to take action — not just investigate? And how do you keep it safe?"*
 
 ---
 
-## Closing (2 min)
+## Act 4: "It Acts, With Guardrails" — Layer 3: + Hook (10 min)
 
-> *"Let's recap what we just did in 35 minutes:*
-> - *Created an agent from scratch*
-> - *Investigated a production outage — from App Insights exception to the exact line of buggy Python code*
-> - *Added guardrails — quality gates, safety blocks, audit trails*
-> - *Taught the agent our team's playbook — and watched it execute it autonomously*
+### The "So What"
+> "The agent scales pods at 2 AM to save your customers. The hook makes sure it can't scale to 100 and blow your budget. Skills teach it what to do. Hooks enforce what it can't."
+
+**Two moments:** (1) the agent *took action* while you slept, and (2) the hook *constrained* that action to policy. Both land hard.
+
+### Setup (done before the session)
+- Subagent `LatencyIncidentHandler` configured — investigates latency spikes, can scale Container Apps (Contributor on Container App resource only — not the resource group), creates GitHub issues
+- Incident trigger created: fires on p95 latency threshold, processing mode = **Autonomous**
+- **Scaling guardrail hook already applied** — `posttooluse-scaling-guardrail.yaml`, max 10 replicas
+- `generate-errors.ps1` generated `/slow` endpoint traffic → 5s response times → alert fired → subagent investigated, hook validated the scaling action, and mitigated
+
+### Flow
+
+#### Part A — The overnight incident
+
+**0:00** — Set the scene  
+*"It's 2 AM in Redmond. But it's 10 AM in Frankfurt, and our European customers just started their workday. They're hitting the order listing endpoint — and it processes each row sequentially, taking 5 seconds per request."*
+
+**0:30** — *"With one user, it's slow. With 50 European users hitting it simultaneously, p95 latency spikes. Azure Monitor alerts. Normally, that's your pager at 2 AM."*
+
+**1:00** — *"But we set up an incident trigger — that's Layer 3. Let me show you what happened while I was asleep."*
+
+**1:30** — Navigate to SRE Agent → **Activities** tab  
+*"A thread was created automatically at 2 AM — triggered by the latency alert, not by a human."*
+
+**2:00** — Open the completed investigation thread  
+*"Let me walk through what the subagent did."*
+
+**2:30** — Scroll through: App Insights latency query, p95 spike identified  
+*"It queried App Insights, found p95 response times on `/slow` jumped to 5+ seconds. Correlated this with the v1.2 deployment from yesterday."*
+
+**3:00** — Show: source search → `app.py`, the `slow_endpoint` function with the sequential loop  
+*"It found a for loop processing orders one at a time with a blocking call per row — that's the slow path."*
+
+**3:30** — Show: **mitigation action** — agent scaled Container App  
+**PAUSE.** *"The important thing here: the agent detected elevated latency, identified which endpoint was slow, and scaled from 1 to 5 replicas to absorb the load. Mitigation first, root cause fix in the GitHub issue for the dev team."*
+
+**4:00** — Show: GitHub issue + email  
+*"Bug filed, email sent. When I woke up: no pager, just a GitHub issue with a fix ready for review."*
+
+#### Part B — The guardrail (hooks)
+
+**4:30** — *"Now — you might be thinking: 'What if the agent decides to scale to 100 replicas?' That's a $50K bill."*
+
+**5:00** — *"That's where hooks come in."*  
+Navigate to **Hooks** → show the scaling guardrail hook  
+*"This is a PostToolUse hook. It intercepts every CLI write command and checks: if it's a scaling action, is the replica count above 10?"*
+
+**5:30** — Show the hook script  
+*"This is a command hook — Python code, not a prompt. It regex-matches --min-replicas and --max-replicas in the CLI command. If the count exceeds 10, it blocks. Deterministic — the LLM can't talk its way around it."*
+
+**6:00** — Show the audit log from the overnight run  
+*"Look — when the agent scaled to 5 last night, the hook ran and logged: 'Command within policy (max 10 replicas).' The scaling went through because 5 is under the ceiling."*
+
+**6:30** — Show what a rejection looks like  
+*"If the agent had tried --min-replicas 15, this is what it would have seen:"*  
+Show the hook's block response on screen (pre-captured or from the YAML): `POLICY VIOLATION: min-replicas=15 exceeds scaling ceiling of 10. Reduce to 10 or fewer and retry.`  
+*"The agent gets a rejection message, not a silent failure. It knows what went wrong and can adjust — but it can never exceed the limit."*
+
+**7:00** — The key distinction  
+*"You could put 'max 10 replicas' in the skill instructions. And 95% of the time, the LLM would follow it. But production SRE isn't about 95%. The hook is the seatbelt — it doesn't matter what the LLM thinks, the code enforces the limit."*
+
+**7:30** — **The one-liner:**  
+*"Skills teach the agent what to do. Hooks enforce what it can't do. Together: expertise with guardrails."*
+
+**8:00** — Mention Review mode + hook levels  
+*"Hooks apply at the platform level — the platform team sets the floor. Individual service teams write their own skills. And you can combine hooks with Review mode for an extra layer of human approval."
+
+### Key talking points
+- "Layer 3 adds write access — but with guardrails"
+- "The agent mitigated — scaling is safe and reversible"
+- "Hooks are deterministic — Python code, not LLM judgment"
+- "Platform team sets hooks (guardrails), service teams write skills (playbooks)"
+- "Autonomous vs Review mode gives you the trust dial"
+
+### Transition line
+> *"Layer 1: catches errors. Layer 2: follows your playbook. Layer 3: takes action with guardrails. But what about issues with no errors, no alerts, no symptoms at all?"*
+
+---
+
+## Act 5: "It Finds What You're Not Looking For" — Layer 4: + Scheduled Task (8 min)
+
+### The "So What"
+> "SQL injection probes and expiring certs don't throw 500s. They don't spike latency. No alert fires. But a daily scan finds them — every day, consistently."
+
+### Setup (done before the session)
+- Subagent `DailySecurityScan` configured — checks Key Vault certs for expiry, scans App Insights logs for security anti-patterns
+- Scheduled task created: runs daily at 8 AM
+- Task ran this morning → found cert expiry + SQL injection probes in logs → created GitHub issues
+- `generate-errors.ps1` already seeded injection probe traffic (`shipped' OR 1=1--`) in App Insights
+
+### Flow
+
+**0:00** — *"The pipeline caught the crash. The incident trigger caught the slowness. But there are two more problems in our environment that neither would ever find."*
+
+**0:30** — *"First — and this one is deterministic: we have a TLS certificate in Key Vault that expires in 7 days. No alert is configured for that. Second: someone has been probing our API with SQL injection payloads — the requests returned 200, so no error-based monitoring caught it. But the query strings are sitting in our App Insights logs."*
+
+**1:00** — Navigate to **Scheduled Tasks** tab  
+*"That's Layer 4. I set this up yesterday — one cron schedule, one subagent, same YAML pattern you've seen. A daily security scan that runs every morning at 8 AM. No trigger needed — just time."*
+
+**1:30** — Show task configuration  
+*"Connected to the DailySecurityScan subagent, daily frequency, new thread per run. Same YAML-driven subagent pattern we saw earlier."*
+
+**2:00** — Click into today's completed run  
+*"Let's see what it found this morning."*
+
+**2:30** — Walk through **primary finding** — certificate expiry  
+*"First: the order-api-tls certificate in Key Vault expires in 7 days."*
+
+**3:00** — Let the finding sink in  
+*"This one is deterministic — the cert either expires or it doesn't. No monitoring tool fires an alert for this by default. In 7 days, your customers get a certificate error and your app is effectively down. The agent checks every Key Vault cert, every morning, and flags anything within 30 days of expiry."*
+
+**3:15** — Show GitHub issue for cert  
+*"It already created a GitHub issue: cert name, vault name, expiry date, recommended action. Ready for the team to pick up."*
+
+**3:30** — Walk through **bonus finding** — SQL injection in logs  
+*"But the agent found something else too. SQL injection patterns in App Insights logs — requests to `/orders` with payloads like `shipped' OR 1=1--`. These all returned 200 — your error monitoring saw nothing wrong."*
+
+**4:00** — Emphasize the impact  
+*"Someone is probing your API. The requests succeeded. No alert fired. But the agent scanned 24 hours of logs and flagged the pattern. Second GitHub issue created — with timestamps and sample payloads."*
+
+**4:30** — Show email notification  
+*"The agent sent this to the team: two findings — cert expiry with severity P1, injection attempts with timestamps. Severity ratings and recommended actions."*
+
+**5:30** — The comparison  
+*"Compare this to your current process: maybe someone checks certs quarterly. Maybe a pen test catches the injection probes. The agent checks every day, creates actionable work items, and only emails when something's wrong."*
+
+**5:30** — Pause  
+*"Four layers. The agent started knowing nothing. Now it catches errors, follows your runbook, mitigates with guardrails, and finds issues nobody was looking for."*
+
+### Transition line
+> *"Let's recap what four layers got us."*
+
+---
+
+## Closing (3 min)
+
+> *"Let's recap the four layers:*
+> - *Layer 1: We added one webhook to our pipeline. The agent caught a 500 error — generic investigation, stack trace, line number. Good, but generic.*
+> - *Layer 2: We uploaded a Markdown file — our team's runbook. Same bug, but now: known pattern matched, runbook followed, right team paged. Five minutes of config, and the agent went from AI to YOUR AI.*
+> - *Layer 3: An incident fired at 2 AM. The agent scaled pods to absorb the load — and the hook made sure it couldn't scale past 10. Expertise with guardrails.*
+> - *Layer 4: A daily scan found a cert expiring in 7 days and SQL injection probes in the logs. No alert fires for either. The agent checks every day.*
 >
-> *This is generally available today. Go to sre.azure.com and try it."*
+> *You just watched the same agent go from 'I found a 500' to 'I matched your known pattern, followed your runbook, scaled your pods within policy, and found a cert nobody knew was expiring.' All you added was one trigger, one skill, one hook, one task."*
+
+**1:00** — Call to action  
+*"This is generally available today. Here's how to start your own layers:"*
+
+- Show link: **sre.azure.com**
+- *"Phase 1: create your agent — takes 2 minutes, like you saw. Start with Reader. Connect your GitHub repo."*
+- *"Phase 2: add one trigger to your pipeline."*
+- *"Phase 3: write one skill for your most common incident."*
+- *"Phase 4: add a hook. Set up a scheduled scan. You'll have a working AI teammate before your next on-call rotation."*
+
+**1:30** — (If available) Show QR code for getting-started guide or samples repo  
+*"Scan this for the step-by-step guide and the sample code we used today — including the subagent YAMLs, the hook, and the skill."*
+
+**2:00** — Final line  
+*"Thank you. Happy to take questions."*
 
 ---
 
 ## Fallback Plans
 
 - **Agent creation wizard hangs** → Jump to pre-created agent: *"Let me skip ahead to one I prepared."*
-- **App Insights has no data** → Show pre-taken screenshot: *"Ingestion is still catching up — but here's what the agent found in my earlier run."*
+- **HTTP trigger doesn't fire live** → Invoke the post-deploy subagent manually in Playground: *"Let me trigger it directly."* Same investigation, same result.
+- **Skill doesn't load after adding** → Mention it by name in the prompt: *"Check order-api using the order-api-runbook skill."* If still fails, show screenshot of skillful response.
+- **Incident trigger didn't fire overnight** → Show the subagent YAML and narrate: *"Here's what would have run."* Invoke in Playground if time allows. Show screenshot of a previous successful run.
+- **Hook audit log not visible** → Explain the hook conceptually with the YAML on screen: *"Here's what the code does — regex match on replica count, block if above 10."*
+- **Scheduled task didn't run** → Click **Run task Now** live and narrate while it executes. If too slow, show screenshot of a previous run.
 - **GitHub OAuth prompt hangs** → Skip the issue creation step: *"OAuth can be finicky on conference WiFi — in practice this takes 10 seconds."*
-- **Agent gives wrong/weak answer** → Rephrase and try again. If still off: *"AI is probabilistic — in production you'd have hooks to catch this, which is actually a great segue to Demo 3."*
-- **Demo 4 skill doesn't load** → Manually trigger: *"Let me mention AKS explicitly."* If still fails, use screenshot.
+- **Agent gives wrong/weak answer** → Rephrase and try again. If still off: *"AI is probabilistic — that's exactly why we have hooks as deterministic guardrails."*
 - **Network/WiFi goes down** → Switch to pre-recorded video backup.
 
 ---
@@ -233,7 +343,7 @@
 *"It uses Azure OpenAI under the hood. The model selection is managed by the platform — you don't need to configure it."*
 
 **"Can it make changes?"**  
-*"By default it's read-only (Reader role). You can grant Contributor if you want it to take action, but we recommend starting with Reader."*
+*"By default it's read-only (Reader role). You can grant Contributor to specific subagents — scoped to a single resource, like just the Container App in Act 4. The interactive agent stays read-only. And hooks enforce what even Contributor agents can do."*
 
 **"How is this different from Copilot?"**  
 *"Copilot helps you write code. SRE Agent helps you operate what's running. It's connected to your Azure telemetry, not your IDE."*
@@ -243,6 +353,30 @@
 
 **"Can I use this with Terraform/Pulumi?"**  
 *"The agent monitors Azure resources regardless of how they were deployed. IaC choice doesn't matter."*
+
+**"How is an HTTP trigger different from an incident trigger?"**  
+*"HTTP triggers are for planned events — post-deploy checks, on-demand investigations. Incident triggers are for unplanned events — alerts from Azure Monitor, PagerDuty, ServiceNow. Scheduled tasks are for recurring proactive checks."*
+
+**"What's the difference between skills and hooks?"**  
+*"Skills teach the agent what to do — they're LLM-interpreted, like a runbook. Hooks enforce what it can't do — they're deterministic code, like a policy. Skills are expertise, hooks are guardrails. Platform team sets hooks, service teams write skills."*
+
+**"Can subagents call each other?"**  
+*"The orchestrator routes to the right subagent based on handoff descriptions. You can chain them for complex workflows."*
+
+**"What incident platforms are supported?"**  
+*"PagerDuty, ServiceNow, and Azure Monitor alerts today. HTTP triggers integrate with any webhook-capable system."*
+
+**"Can the agent roll back a deployment?"**  
+*"With Contributor access, yes — but we recommend starting with safer actions like scaling. Rollbacks can be gated with Review mode so a human approves first. And hooks can enforce which rollback actions are allowed."*
+
+**"What is workspace mode?"**  
+*"Workspace mode gives the agent a sandboxed environment with file operations, terminal access, and code execution. It's required for skills. There are three sandbox options: local, sidecar, and Azure Developer Container for full isolation."*
+
+**"How is this different from PagerDuty/Datadog AI?"**  
+*"Those tools alert. This agent investigates, acts, and learns your runbooks. PagerDuty tells you something's wrong. SRE Agent tells you why, files the bug, and scales your pods — all before you wake up."*
+
+**"Why didn't your tests catch the null deref?"**  
+*"Unit tests passed. Integration tests passed. But no test hit /orders/999 because that order doesn't exist in the test database. Edge cases from production data — stale bookmarks, deleted records, old API consumers — are exactly what post-deploy validation catches."*
 
 **"Pricing?"**  
 *"Check the SRE Agent pricing page for current details."*

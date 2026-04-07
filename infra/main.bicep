@@ -1,8 +1,9 @@
 param location string = resourceGroup().location
 param appName string = 'order-api-demo'
 param acrName string = 'acr${uniqueString(resourceGroup().id)}'
+param keyVaultName string = 'kv-${uniqueString(resourceGroup().id)}'
 param containerImageName string = 'order-api-demo'
-param containerImageTag string = 'v1'
+param containerImageTag string = '1.2.0'
 param useAcrImage bool = false
 
 // ---------- Container Registry ----------
@@ -118,5 +119,113 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
 // ---------- Outputs ----------
 output appUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output appInsightsName string = appInsights.name
+output appInsightsId string = appInsights.id
 output acrLoginServer string = acr.properties.loginServer
 output acrName string = acr.name
+output keyVaultName string = keyVault.name
+
+// ---------- Key Vault with Near-Expiry Cert (Demo 4) ----------
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: keyVaultName
+  location: location
+  properties: {
+    sku: { family: 'A', name: 'standard' }
+    tenantId: subscription().tenantId
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 7
+  }
+}
+
+// Key Vault Reader role so the SRE Agent can list and inspect certificates
+// Role: Key Vault Reader (21090545-7ca7-4776-b22c-e363652d74d2)
+param sreAgentPrincipalId string = ''
+var keyVaultReaderRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '21090545-7ca7-4776-b22c-e363652d74d2')
+
+resource keyVaultReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(sreAgentPrincipalId)) {
+  name: guid(keyVault.id, sreAgentPrincipalId, keyVaultReaderRoleId)
+  scope: keyVault
+  properties: {
+    principalId: sreAgentPrincipalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: keyVaultReaderRoleId
+  }
+}
+
+// Self-signed cert — created via CLI, not Bicep.
+// The Key Vault certificates API doesn't work reliably with ARM deployments
+// (returns NotFound even when the vault exists). Create manually:
+//   az keyvault certificate create --vault-name <kv> -n order-api-tls --policy @cert-policy.json
+// ⚠️ For the demo, recreate ~23 days after initial deploy so it has ~7 days remaining.
+// Check: az keyvault certificate show --vault-name <kv> -n order-api-tls --query 'attributes.expires'
+
+// ---------- Alert Rule for Incident Trigger ----------
+resource errorAlertRule 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: '${appName}-500-errors'
+  location: 'global'
+  properties: {
+    description: 'Fires when the order-api container app returns HTTP 500 errors. Used by SRE Agent incident trigger.'
+    severity: 2
+    enabled: true
+    scopes: [
+      containerApp.id
+    ]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'High5xxRate'
+          metricName: 'Requests'
+          metricNamespace: 'Microsoft.App/containerApps'
+          operator: 'GreaterThan'
+          threshold: 5
+          timeAggregation: 'Total'
+          dimensions: [
+            {
+              name: 'statusCodeCategory'
+              operator: 'Include'
+              values: [ '5xx' ]
+            }
+          ]
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    actions: []
+  }
+}
+
+// ---------- Latency Alert Rule for Incident Trigger (Act 4) ----------
+// Log-based alert using App Insights request duration data.
+// Fires when average response time exceeds 3 seconds in a 5-minute window.
+resource latencyAlertRule 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview' = {
+  name: '${appName}-high-latency'
+  location: location
+  properties: {
+    description: 'Fires when average response time exceeds 3 seconds. Used by SRE Agent incident trigger for latency incidents.'
+    severity: 2
+    enabled: true
+    scopes: [
+      appInsights.id
+    ]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'requests | where duration > 3000'
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 3
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {}
+  }
+}

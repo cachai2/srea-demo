@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------------------
+# PostToolUse Hook — Scaling Guardrail
+# ---------------------------------------------------------------------------
+# Intercepts Container App scaling commands and enforces a max replica limit.
+# Blocks any az containerapp update that sets --min-replicas or --max-replicas
+# above the configured ceiling (default: 10).
+#
+# Apply at: Builder → Hooks → Create hook (agent-level)
+# This hook applies to ALL subagents and skills — platform-level policy.
+# ---------------------------------------------------------------------------
+
+api_version: azuresre.ai/v2
+kind: ExtendedAgent
+metadata:
+  name: scaling_guardrail
+spec:
+  instructions: |
+    You are a helpful SRE assistant.
+  enableVanillaMode: true
+
+  hooks:
+    PostToolUse:
+      - type: command
+        matcher: "Bash|ExecuteShellCommand|RunAzCliWriteCommands"
+        timeout: 30
+        failMode: block
+        script: |
+          #!/usr/bin/env python3
+          """
+          Enforce Container App scaling policy:
+          - Max replicas ceiling: 10
+          - Blocks any scaling command that exceeds the limit
+          - Allows and audit-logs commands within policy
+          """
+          import sys, json, re, datetime
+
+          MAX_REPLICAS = 10
+
+          context = json.load(sys.stdin)
+          command = context.get('tool_input', {}).get('command', '')
+
+          # Check for replica count in the command
+          replica_patterns = [
+              (r'--min-replicas\s+(\d+)', 'min-replicas'),
+              (r'--max-replicas\s+(\d+)', 'max-replicas'),
+          ]
+
+          for pattern, label in replica_patterns:
+              match = re.search(pattern, command)
+              if match:
+                  count = int(match.group(1))
+                  if count > MAX_REPLICAS:
+                      print(json.dumps({
+                          "decision": "block",
+                          "hookSpecificOutput": {
+                              "reason": f"POLICY VIOLATION: {label}={count} exceeds scaling ceiling of {MAX_REPLICAS}. "
+                                        f"Reduce to {MAX_REPLICAS} or fewer and retry."
+                          }
+                      }))
+                      sys.exit(0)
+
+          # Command is within policy — allow and audit
+          ts = datetime.datetime.utcnow().isoformat() + "Z"
+          print(json.dumps({
+              "decision": "allow",
+              "hookSpecificOutput": {
+                  "additionalContext": f"[SCALING AUDIT {ts}] Command within policy (max {MAX_REPLICAS} replicas): {command}"
+              }
+          }))

@@ -1,0 +1,13 @@
+# Skill definition — paste into Builder → Skills → Create
+name: order-api-runbook
+description: >
+  Use when investigating issues with the order-api service including
+  500 errors, latency spikes, security findings, and secret leaks.
+  Contains known issue patterns, remediation steps, and escalation policy.
+files:
+  - SKILL.md
+tools:
+  - RunAzCliReadCommands
+  - QueryAppInsightsByResourceId
+  - QuerySourceBySemanticSearch
+  - CreateGithubIssue

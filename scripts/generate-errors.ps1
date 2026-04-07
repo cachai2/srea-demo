@@ -35,13 +35,21 @@ for ($i = 1; $i -le $Rounds; $i++) {
         Write-Host "  /orders/999        -> $code (expect 500)" -ForegroundColor Yellow
     }
 
-    # Bug 2: SQL injection pattern in query param
-    try {
-        Invoke-WebRequest "$APP_URL/orders?status=shipped'%20OR%201=1--" -UseBasicParsing -ErrorAction Stop | Out-Null
-        Write-Host "  /orders?status=sqli -> 200 (expect 200)" -ForegroundColor Green
-    } catch {
-        $code = $_.Exception.Response.StatusCode.value__
-        Write-Host "  /orders?status=sqli -> $code (UNEXPECTED)" -ForegroundColor Red
+    # Bug 2: SQL injection probes — multiple patterns so the agent sees a realistic attack
+    $sqliPayloads = @(
+        "shipped'%20OR%201=1--",
+        "shipped'%20UNION%20SELECT%20NULL--",
+        "shipped';%20DROP%20TABLE%20orders--",
+        "shipped'%20AND%201=1--"
+    )
+    foreach ($payload in $sqliPayloads) {
+        try {
+            Invoke-WebRequest "$APP_URL/orders?status=$payload" -UseBasicParsing -ErrorAction Stop | Out-Null
+            Write-Host "  /orders?status=sqli -> 200 (expect 200)" -ForegroundColor Green
+        } catch {
+            $code = $_.Exception.Response.StatusCode.value__
+            Write-Host "  /orders?status=sqli -> $code (UNEXPECTED)" -ForegroundColor Red
+        }
     }
 
     # Bug 3: Secret leak - health endpoint logs connection string
@@ -53,14 +61,17 @@ for ($i = 1; $i -le $Rounds; $i++) {
         Write-Host "  /health             -> $code (UNEXPECTED)" -ForegroundColor Red
     }
 
-    # Bug 4: Slow endpoint - N+1 pattern
-    try {
-        Invoke-WebRequest "$APP_URL/slow" -UseBasicParsing -ErrorAction Stop | Out-Null
-        Write-Host "  /slow               -> 200 (expect 200)" -ForegroundColor Green
-    } catch {
-        $code = $_.Exception.Response.StatusCode.value__
-        Write-Host "  /slow               -> $code (UNEXPECTED)" -ForegroundColor Red
+    # Bug 4: Slow endpoint — CONCURRENT requests to spike p95 latency
+    # Sequential calls won't trigger the alert — need parallel load
+    $slowJobs = 1..5 | ForEach-Object {
+        Start-Job -ScriptBlock {
+            param($url)
+            try { Invoke-WebRequest "$url/slow" -UseBasicParsing -ErrorAction Stop | Out-Null } catch {}
+        } -ArgumentList $APP_URL
     }
+    $slowJobs | Wait-Job -Timeout 30 | Out-Null
+    $slowJobs | Remove-Job -Force
+    Write-Host "  /slow x5 concurrent -> done (expect ~5s each)" -ForegroundColor Green
 
     # Normal traffic so failures stand out
     try { Invoke-WebRequest "$APP_URL/" -UseBasicParsing -ErrorAction Stop | Out-Null } catch {}

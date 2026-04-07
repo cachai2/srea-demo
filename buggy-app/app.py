@@ -7,12 +7,15 @@ Known bugs planted:
   1. /orders/<id> — unhandled None dereference when order not found (500)
   2. /orders        — SQL-injection-style string formatting (flaggable)
   3. /health        — DB connection string logged at INFO level (secret leak)
-  4. /slow          — artificial N+1 query pattern causing latency spikes
+  4. /slow          — sequential per-row processing causing latency spikes
 """
 
 import os
 import logging
 import time
+from datetime import datetime, timezone
+
+DEPLOY_TIMESTAMP = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 # Wire up App Insights BEFORE importing/creating Flask so auto-instrumentation hooks in
 from azure.monitor.opentelemetry import configure_azure_monitor
@@ -35,16 +38,16 @@ DB_CONNECTION_STRING = os.environ.get(
 )
 
 ORDERS = {
-    "1":  {"id": "1",  "item": "Widget A",  "qty": 10, "status": "shipped"},
-    "2":  {"id": "2",  "item": "Widget B",  "qty": 5,  "status": "processing"},
-    "3":  {"id": "3",  "item": "Gadget C",  "qty": 2,  "status": "delivered"},
-    "4":  {"id": "4",  "item": "Gizmo D",   "qty": 8,  "status": "shipped"},
-    "5":  {"id": "5",  "item": "Doohickey E", "qty": 1, "status": "processing"},
-    "6":  {"id": "6",  "item": "Thingamajig F", "qty": 20, "status": "shipped"},
-    "7":  {"id": "7",  "item": "Whatchamacallit G", "qty": 3, "status": "delivered"},
-    "8":  {"id": "8",  "item": "Widget H",  "qty": 15, "status": "processing"},
-    "9":  {"id": "9",  "item": "Gadget I",  "qty": 7,  "status": "shipped"},
-    "10": {"id": "10", "item": "Widget J",  "qty": 12, "status": "delivered"},
+    "1":  {"id": "1",  "item": "Laptop Pro 15\"",    "qty": 2,  "status": "shipped"},
+    "2":  {"id": "2",  "item": "Wireless Mouse",     "qty": 5,  "status": "processing"},
+    "3":  {"id": "3",  "item": "USB-C Monitor 27\"",  "qty": 1,  "status": "delivered"},
+    "4":  {"id": "4",  "item": "Mechanical Keyboard", "qty": 3,  "status": "shipped"},
+    "5":  {"id": "5",  "item": "Noise-Canceling Headset", "qty": 1, "status": "processing"},
+    "6":  {"id": "6",  "item": "Docking Station",    "qty": 10, "status": "shipped"},
+    "7":  {"id": "7",  "item": "Webcam HD 1080p",    "qty": 4,  "status": "delivered"},
+    "8":  {"id": "8",  "item": "Standing Desk",      "qty": 1,  "status": "processing"},
+    "9":  {"id": "9",  "item": "Ethernet Adapter",   "qty": 8,  "status": "shipped"},
+    "10": {"id": "10", "item": "Portable SSD 1TB",   "qty": 2,  "status": "delivered"},
 }
 
 
@@ -52,7 +55,7 @@ ORDERS = {
 
 @app.route("/")
 def index():
-    return jsonify({"service": "order-api", "version": "1.2.0"})
+    return jsonify({"service": "order-api", "version": "1.2.0", "deployed_at": DEPLOY_TIMESTAMP})
 
 
 @app.route("/health")
@@ -87,7 +90,7 @@ def get_order(order_id):
 
 @app.route("/slow")
 def slow_endpoint():
-    """BUG 4: Simulated N+1 query — loops with a sleep per 'row'."""
+    """BUG 4: Slow sequential processing — loops with a sleep per 'row'."""
     results = []
     for oid, order in ORDERS.items():
         time.sleep(0.5)  # simulates individual DB round-trip

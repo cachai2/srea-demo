@@ -1,27 +1,51 @@
-# Azure SRE Agent — LevelUp Demo (4/7)
+# Azure SRE Agent — LevelUp Demo (April 7, 2026)
 
-> Demo materials for the SREA GA features LevelUp session.
+> Demo materials for the Azure SRE Agent GA Features LevelUp session.
+> See [demoSpec.md](demoSpec.md) for the full spec and [DEMO-FLOW.md](DEMO-FLOW.md) for the scripted run-of-show.
+
+## Narrative
+
+**One agent, four layers.** Each layer is ~5 minutes of config with a visible payoff:
+
+| Layer | What you add | What improves |
+|-------|-------------|---------------|
+| 0. Bare agent | Connect resources | Knows your infra |
+| 1. + Trigger | HTTP Trigger from CI/CD | Catches 500s, generic investigation |
+| 2. + Skill | order-api-runbook | Same bug → known pattern, runbook, right team paged |
+| 3. + Hook | Scaling guardrail | Incident trigger scales pods, hook enforces max 10 |
+| 4. + Scheduled Task | Daily security scan | Finds cert expiry + injection probes |
 
 ## Project Structure
 
 ```
 srea-levelup-demo/
-├── buggy-app/              # Demo 2: Sample app with planted bugs
+├── buggy-app/              # Sample app with planted bugs
 │   ├── app.py              #   Flask API with 4 intentional bugs + OpenTelemetry
 │   ├── requirements.txt
 │   └── Dockerfile
-├── hooks/                  # Demo 3: Agent hook configurations
-│   ├── stop-quality-gate.yaml      #   Stop hook — response quality gate
-│   ├── posttooluse-safety.yaml     #   PostToolUse hook — block dangerous cmds
-│   └── posttooluse-audit.yaml      #   PostToolUse hook — audit all tool calls
-├── skills/                 # Demo 4: Custom skill
-│   └── aks-troubleshooting/
-│       ├── SKILL.md        #   Step-by-step AKS troubleshooting guide
-│       └── skill.yaml      #   Skill definition (name, description, tools)
-├── infra/                  # Supporting infra
-│   └── main.bicep          #   ACR + Managed Identity + Container App + App Insights + Log Analytics
+├── subagents/              # Subagent YAML definitions
+│   ├── incident-error-handler.yaml  #   Acts 2-3: PostDeployValidator (HTTP trigger)
+│   ├── latency-incident-handler.yaml #  Act 4: LatencyIncidentHandler (incident trigger)
+│   └── scheduled-health-check.yaml  #   Act 5: DailySecurityScan (scheduled task)
+├── hooks/                  # Agent hook configurations
+│   ├── posttooluse-scaling-guardrail.yaml  #  Act 4: Max 10 replicas (command hook)
+│   ├── stop-quality-gate.yaml      #   (Optional) Stop hook — response quality gate
+│   ├── posttooluse-safety.yaml     #   (Optional) PostToolUse hook — block dangerous cmds
+│   └── posttooluse-audit.yaml      #   (Optional) PostToolUse hook — audit all tool calls
+├── skills/                 # Skill definitions
+│   ├── order-api-runbook/          #   Act 3: Order API incident response guide
+│   │   ├── SKILL.md        #     Known patterns, remediation, escalation policy
+│   │   └── skill.yaml      #     Skill definition (name, description, tools)
+│   └── aks-troubleshooting/        #   (Optional) AKS troubleshooting guide
+│       ├── SKILL.md
+│       └── skill.yaml
+├── infra/
+│   └── main.bicep          #   ACR + Container App + App Insights + Key Vault + Alerts
 ├── scripts/
-│   └── generate-errors.sh  #   Hit buggy endpoints in a loop to populate App Insights
+│   ├── generate-errors.ps1 #   Seed telemetry (Windows) — 500s, /slow latency, SQLi probes
+│   └── generate-errors.sh  #   Seed telemetry (Linux/macOS)
+├── demoSpec.md             # Full demo spec (source of truth)
+├── DEMO-FLOW.md            # Scripted run-of-show with timestamps
 └── README.md               # ← You are here
 ```
 
@@ -39,7 +63,7 @@ srea-levelup-demo/
 | Resource provider | `az provider register --namespace "Microsoft.ContainerRegistry"` |
 | GitHub repo | Push this project to a GitHub repo for source code integration |
 
-### 2. Deploy the Buggy App
+### 2. Deploy Infrastructure + App
 
 ```bash
 # Create resource group
@@ -54,8 +78,8 @@ az deployment group create \
 ACR_NAME=$(az deployment group show -g rg-srea-demo -n main \
   --query properties.outputs.acrName.value -o tsv)
 
-# Step 3 — Build & push the buggy-app image into the provisioned ACR
-az acr build -r $ACR_NAME -g rg-srea-demo -t order-api-demo:v1 ./buggy-app
+# Step 3 — Build & push the buggy-app image (tag MUST be 1.2.0)
+az acr build -r $ACR_NAME -g rg-srea-demo -t order-api-demo:1.2.0 ./buggy-app
 
 # Step 4 — Redeploy, now pointing to the real image
 az deployment group create \
@@ -67,16 +91,12 @@ az deployment group create \
 APP_URL=$(az deployment group show -g rg-srea-demo -n main \
   --query properties.outputs.appUrl.value -o tsv)
 curl -sf "$APP_URL/" | jq .
-# Expected: {"service": "order-api", "version": "1.2.0"}
+# Expected: {"service": "order-api", "version": "1.2.0", "deployed_at": "2026-04-06T...Z"}
 ```
 
-### 3. Generate Errors for Demo 2
-
-> **Important:** App Insights ingestion takes 3-5 minutes. Run this script
-> **at least 10 minutes before** your live demo so telemetry is queryable.
+### 3. Seed Telemetry (T-12 hours before demo)
 
 ```bash
-# Run the automated error-generation script (10 rounds, ~2 min)
 # PowerShell (Windows):
 .\scripts\generate-errors.ps1 -ResourceGroup rg-srea-demo
 
@@ -84,118 +104,143 @@ curl -sf "$APP_URL/" | jq .
 bash scripts/generate-errors.sh rg-srea-demo
 ```
 
-Or manually hit individual endpoints:
+> **Why 12 hours?** Telemetry ingests in 2-5 min, but the Azure Monitor alert needs to fire
+> and the incident trigger's subagent investigation needs to complete overnight. Run this the
+> evening before a morning demo.
 
-```bash
-APP_URL=$(az deployment group show -g rg-srea-demo -n main \
-  --query properties.outputs.appUrl.value -o tsv)
-
-curl "$APP_URL/orders/999"                             # Bug 1: 500 null deref
-curl "$APP_URL/orders?status=shipped'%20OR%201=1--"     # Bug 2: SQL injection
-curl "$APP_URL/health"                                  # Bug 3: Secret in logs
-curl "$APP_URL/slow"                                    # Bug 4: N+1 latency
-```
-
-### 4. Create the SRE Agent
+### 4. Create the SRE Agent (Act 1)
 
 1. Go to [sre.azure.com](https://sre.azure.com) → **Create agent**
 2. Select your subscription, `rg-srea-demo`, region
 3. Permission level: **Reader** (recommended for demo)
 4. After creation, verify: ask *"What Azure resources can you see?"*
 
-### 5. Connect GitHub (for Demo 2)
+### 5. Connect GitHub
 
 1. Builder → Connectors → **GitHub (OAuth)**
 2. Authorize with your GitHub account
-3. Verify: ask *"Search my repos for 'order-api'"*
+3. Resource Mapping → connect your Container App to the GitHub repo
+4. Verify: ask *"Search my repos for 'order-api'"*
+
+### 6. Configure PostDeployValidator — HTTP Trigger (Acts 2-3)
+
+1. Go to **Subagent Builder** → **+ New Subagent**
+2. Name: `PostDeployValidator`
+3. Click **Edit** → **YAML** tab → paste contents of `subagents/incident-error-handler.yaml`
+4. Update the email recipient in the YAML to your email address
+5. Click **Save**
+6. Set up the **HTTP Trigger** → copy the webhook URL
+7. Add the webhook URL as a post-deploy step in your CI/CD pipeline
+
+> **Note:** Filename is legacy (`incident-error-handler.yaml`); the subagent name in the portal is `PostDeployValidator`.
+
+### 7. Configure LatencyIncidentHandler — Incident Trigger (Act 4)
+
+1. Go to **Subagent Builder** → **+ New Subagent**
+2. Name: `LatencyIncidentHandler`
+3. Click **Edit** → **YAML** tab → paste contents of `subagents/latency-incident-handler.yaml`
+4. Update the email recipient in the YAML to your email address
+5. Click **Save**
+6. Go to **Incident Triggers** → **+ New Incident Trigger**
+   - Name: `Order API Latency Spike`
+   - Response Subagent: `LatencyIncidentHandler`
+   - Processing Mode: **Autonomous**
+7. Click **Create**
+
+> **Note:** This subagent needs **Contributor** access scoped to the Container App resource
+> (not the resource group) for the scaling mitigation action.
+
+### 8. Configure DailySecurityScan — Scheduled Task (Act 5)
+
+1. Go to **Subagent Builder** → **+ New Subagent**
+2. Name: `DailySecurityScan`
+3. Click **Edit** → **YAML** tab → paste contents of `subagents/scheduled-health-check.yaml`
+4. Update the email recipient in the YAML to your email address
+5. Click **Save**
+6. Go to **Scheduled Tasks** → **+ New Scheduled Task**
+   - Task Name: `Daily Security & Code Quality Scan`
+   - Response Subagent: `DailySecurityScan`
+   - Task Details: `scan order-api source code for security anti-patterns and check logs for leaked secrets`
+   - Frequency: **Daily**
+   - Time: **8:00 AM**
+   - Message Grouping: **New thread for each run**
+7. Click **Save**
+
+### 9. Connect Outlook
+
+1. Builder → Connectors → **Outlook**
+2. Login with your Microsoft 365 email
+3. Select **System Assigned Managed Identity** for auth
+4. Click **Save**
+
+### 10. Apply Scaling Guardrail Hook (Act 4)
+
+1. Go to **Hooks** → **Create hook**
+2. Paste contents of `hooks/posttooluse-scaling-guardrail.yaml`
+3. Apply at **agent level** (applies to all subagents)
+4. Click **Save**
+
+### 11. Enable Workspace Mode (required for Act 3 skills)
+
+1. Go to agent **Settings** → enable **Workspace Mode**
+2. This gives the agent file operations, terminal, code execution in a sandbox
+3. Required for the skill toggle in Act 3
+
+### 12. Cert Expiry Setup (Act 5)
+
+The Bicep template creates a self-signed cert with 1-month validity. For the demo, the cert
+needs to be 5-10 days from expiry. Either:
+
+- Deploy ~23 days before the demo, or
+- Manually recreate the cert closer to demo day
+
+Verify:
+```bash
+KV_NAME=$(az deployment group show -g rg-srea-demo -n main \
+  --query properties.outputs.keyVaultName.value -o tsv)
+az keyvault certificate show --vault-name $KV_NAME -n order-api-tls \
+  --query 'attributes.expires' -o tsv
+```
+
+### 13. Pre-Stage for Demo Day
+
+1. **DO NOT** add the `order-api-runbook` skill yet — you add it live in Act 3
+2. Verify all three subagents are configured and saved
+3. Verify the scaling guardrail hook is applied
+4. Verify workspace mode is ON
+5. Clear chat history
 
 ---
 
-## Demo Walkthroughs
+## Pre-Show Checklist
 
-### Demo 1: New Getting Started Experience (5 min)
-
-**Story**: Show how fast you can go from zero to a working SRE agent.
-
-1. Open [sre.azure.com](https://sre.azure.com), click **Create agent**
-2. Walk through the wizard (Basics → Resource Groups → Permissions → Deploy)
-3. Once deployed, ask: *"What Azure resources can you see?"*
-4. Show the auto-generated resource summary and suggested prompts
-5. Ask a follow-up: *"Are there any unhealthy resources?"*
-
-> **Tip**: Pre-create one agent so you can show the wizard AND jump to a working agent without waiting.
-
----
-
-### Demo 2: Source Code Integration & Bug Identification (10 min)
-
-**Story**: An app is throwing 500s. SREA finds the bug in your code.
-
-1. Ask: *"My order-api is returning 500 errors. Can you investigate?"*
-2. Agent queries App Insights → finds the NullReference exception on `/orders/999`
-3. Agent searches GitHub → finds `app.py`, line ~81: `order.get("item")` on `None`
-4. Ask: *"Are there any other issues in this codebase?"*
-5. Agent finds:
-   - SQL injection risk (string formatting on line ~72)
-   - Secret leak in health endpoint (line ~65)
-   - N+1 query pattern on `/slow` (line ~87)
-6. Ask: *"Create a GitHub issue for the null dereference bug"*
-
-**Key talking points**:
-- Semantic code search — natural language, not grep
-- Error-to-code correlation — App Insights exceptions → file + line number
-- Actionable: can create issues, comment on PRs, trigger workflows
+| When | Check | Command |
+|------|-------|---------|
+| T-12h | Run `generate-errors.ps1` | `.\scripts\generate-errors.ps1` |
+| T-1h | Exceptions exist (expect ≥10) | `az monitor app-insights query --app <app> --analytics-query "exceptions \| where timestamp > ago(12h) \| count"` |
+| T-1h | SQLi probes in logs (expect ≥10) | `az monitor app-insights query --app <app> --analytics-query "requests \| where timestamp > ago(12h) and url contains 'status=' and url contains 'OR' \| count"` |
+| T-1h | 500-errors alert fired | Check Alerts blade in Azure Portal |
+| T-1h | Incident trigger completed | Activities tab in sre.azure.com |
+| T-1h | Scheduled task ran at 8 AM | Scheduled Tasks tab in sre.azure.com |
+| T-30m | Cert expiry 5-10 days out | `az keyvault certificate show --vault-name <kv> -n order-api-tls --query 'attributes.expires'` |
+| T-5m | Skill NOT added | Delete `order-api-runbook` if present |
+| T-5m | Hook IS applied | Verify scaling guardrail in Hooks tab |
+| T-2m | Chat history cleared | Clear in sre.azure.com |
 
 ---
 
-### Demo 3: Agent Hooks (10 min)
+## Demo Acts
 
-**Story**: Autonomy is great, but you need guardrails.
+| Act | Title | Time | Layer | Live? |
+|-----|-------|------|-------|-------|
+| 1 | "Meet Your Agent" | 1 min | Bare agent | Pre-created |
+| 2 | "It Catches Errors" | 5 min | + HTTP Trigger | **Live** |
+| 3 | "Now It Knows Your App" | 5 min | + Skill | **Live** |
+| 4 | "It Acts, With Guardrails" | 10 min | + Hook | Pre-run |
+| 5 | "It Finds What You're Not Looking For" | 8 min | + Scheduled Task | Pre-run |
+| — | Closing | 3 min | — | — |
 
-#### 3A — Stop Hook (quality gate)
-1. Show the agent responding normally
-2. Go to Builder → Hooks → Create → paste `stop-quality-gate.yaml` config
-3. Ask the agent something; it responds → hook rejects → agent adds "Task complete."
-4. Show the rejection/retry flow in the UI
-
-#### 3B — Safety Hook (block dangerous commands)
-1. Add the `posttooluse-safety.yaml` hook
-2. Ask: *"Clean up old files by running rm -rf /tmp/old-data"*
-3. Agent attempts the command → hook blocks it with a policy violation message
-4. Show: two hook levels (agent-level vs custom-agent-level), prompt vs command types
-
-#### 3C — Audit Hook (optional, time permitting)
-1. Add `posttooluse-audit.yaml` (matcher: `*`)
-2. Run any investigation → every tool call gets an `[AUDIT]` trail injected
-
-**Key talking points**:
-- Hooks complement run modes (modes = what; hooks = how well)
-- Prompt hooks for subjective validation, command hooks for deterministic checks
-- `maxRejections` prevents infinite loops
-
----
-
-### Demo 4: Building and Using Skills (10 min)
-
-**Story**: Capture your team's expertise so it's available 24/7.
-
-1. Ask: *"My AKS cluster has pods in CrashLoopBackOff, what should I do?"*
-   - Agent gives a **generic** answer
-2. Go to Builder → Skills → **Create**
-   - Name: `aks-troubleshooting-guide`
-   - Description: *"Use when investigating AKS or Kubernetes issues"*
-   - Upload `SKILL.md` from `skills/aks-troubleshooting/`
-   - Attach tool: `RunAzCliReadCommands`
-3. Ask the **same question** again
-   - Agent loads the skill automatically, follows your 6-step procedure, runs az CLI commands
-4. Show the difference: skill loaded indicator, structured output following your guide
-
-**Key talking points**:
-- Skills are **automatic** — agent loads when relevant (no `/skill` command)
-- Custom agents are **explicit** — invoked with `/agent`
-- Max 5 concurrent skills, oldest auto-unloaded, re-readable
-- Can attach Azure CLI, Kusto, Python, MCP, and Link tools
-- Compare: Skill (procedure + execution) vs Custom Agent (domain specialist) vs Knowledge File (reference docs)
+See [DEMO-FLOW.md](DEMO-FLOW.md) for the full scripted walkthrough with timestamps and speaker notes.
 
 ---
 
