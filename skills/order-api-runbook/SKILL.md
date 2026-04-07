@@ -1,8 +1,13 @@
-# Order API — Incident Response & Troubleshooting Guide
+# Order API - Incident Response & Troubleshooting Guide
 
-Use this skill when investigating issues with the order-api service
-(Azure Container App). This encodes our team's 3 years of operational
-experience with this service.
+IMPORTANT: When investigating any order-api issue, ALWAYS check the Known Issue
+Patterns below FIRST. If a finding matches a pattern, you MUST:
+- Reference the pattern by name (e.g., "This matches Pattern 1: Null Order ID")
+- Follow the remediation steps exactly as documented
+- Apply the escalation policy based on severity
+- Use the specified GitHub issue labels from the pattern
+
+This encodes our team's 3 years of operational experience with this service.
 
 ## Service Overview
 
@@ -68,11 +73,15 @@ to anyone with Reader access.
 
 ## Escalation Policy
 
-| Severity | Response time | Who to page |
-|----------|--------------|-------------|
-| P1 (500 errors > 5%) | 15 min | @contoso-sre-oncall |
-| P2 (latency > 3s p95) | 30 min | @contoso-sre |
-| P3 (security finding) | Next standup | @contoso-security |
+ALWAYS apply this escalation policy based on findings:
+
+| Severity | Threshold | Response time | Action |
+|----------|-----------|---------------|--------|
+| P1 (Critical) | 500 errors > 5% of requests | 15 min | Page @contoso-sre-oncall IMMEDIATELY |
+| P2 (High) | Latency > 3s p95 | 30 min | Page @contoso-sre |
+| P3 (Medium) | Security finding | Next standup | Notify @contoso-security |
+
+If error rate exceeds 5%, you MUST mention paging @contoso-sre-oncall in your report.
 
 ## Investigation Checklist
 
