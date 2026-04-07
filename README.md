@@ -246,3 +246,72 @@ az group delete -n rg-srea-demo --yes --no-wait
 ```
 
 Delete the SRE Agent from [sre.azure.com](https://sre.azure.com) → agent settings.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Azure SRE Agent                          │
+│                   (sre.azure.com)                           │
+│                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐                 │
+│  │ PostDeployValid.  │  │ LatencyIncident  │                 │
+│  │ (HTTP Trigger)    │  │ Handler          │                 │
+│  │ Reader            │  │ (Incident Trig.) │                 │
+│  │                   │  │ Contributor*     │                 │
+│  └────────┬─────────┘  └────────┬─────────┘                 │
+│           │                     │                            │
+│  ┌────────┴─────────┐  ┌───────┴──────────┐                 │
+│  │ DailySecurityScan│  │ Scaling Guardrail│                 │
+│  │ (Scheduled Task) │  │ (PostToolUse     │                 │
+│  │ Reader           │  │  Hook, max 10)   │                 │
+│  └──────────────────┘  └──────────────────┘                 │
+│                                                             │
+│  Skills: order-api-runbook (added live in Act 3)            │
+│  * Contributor scoped to Container App resource only        │
+└──────────────┬──────────────────────────────────────────────┘
+               │ Monitors
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    rg-srea-demo                              │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ Container App│  │ App Insights │  │  Key Vault   │       │
+│  │ order-api-   │  │ order-api-   │  │ kv-*         │       │
+│  │ demo         │  │ demo-ai      │  │              │       │
+│  │              │  │              │  │ order-api-tls│       │
+│  │ Flask/Python │  │ Exceptions   │  │ (cert, ~30d) │       │
+│  │ v1.2.0       │  │ Requests     │  │              │       │
+│  │ 4 bugs       │  │ Traces       │  └──────────────┘       │
+│  └──────┬───────┘  └──────────────┘                          │
+│         │                                                    │
+│  ┌──────┴───────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │     ACR      │  │ Log Analytics│  │ Alert Rules  │       │
+│  │ order-api-   │  │ order-api-   │  │ 500-errors   │       │
+│  │ demo:1.2.0   │  │ demo-logs    │  │ high-latency │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  GitHub: cachai2/srea-levelup-demo                           │
+│  - Source code search (QuerySourceBySemanticSearch)          │
+│  - Issue creation (CreateGithubIssue)                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Resources
+
+| Resource | Link |
+|----------|------|
+| SRE Agent Portal | [sre.azure.com](https://sre.azure.com) |
+| Documentation | [sre.azure.com/docs](https://sre.azure.com/docs) |
+| Starter Lab | [github.com/microsoft/sre-agent/labs/starter-lab](https://github.com/microsoft/sre-agent/tree/main/labs/starter-lab) |
+| Blog | [aka.ms/sreagent/blog](https://aka.ms/sreagent/blog) |
+| Pricing | [aka.ms/sreagent/pricing](https://aka.ms/sreagent/pricing) |
+| Support | [aka.ms/sreagent/github](https://aka.ms/sreagent/github) |
