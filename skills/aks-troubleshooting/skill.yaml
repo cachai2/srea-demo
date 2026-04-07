@@ -1,9 +1,0 @@
-# Skill definition — paste into Builder → Skills → Create
-name: aks-troubleshooting-guide
-description: >
-  Use when investigating AKS or Kubernetes issues including pod failures,
-  node problems, networking issues, and deployment rollouts.
-files:
-  - SKILL.md
-tools:
-  - RunAzCliReadCommands
