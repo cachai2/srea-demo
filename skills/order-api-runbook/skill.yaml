@@ -1,4 +1,5 @@
-# Skill definition — paste into Builder → Skills → Create
+# Skill definition — reference for automated setup.
+# For the live demo (Act 3), just upload SKILL.md in the portal UI — no tools config needed.
 name: order-api-runbook
 description: >
   Use when investigating issues with the order-api service including

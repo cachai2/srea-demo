@@ -160,7 +160,7 @@ bash scripts/generate-errors.sh rg-srea-demo
 6. Go to **Scheduled Tasks** → **+ New Scheduled Task**
    - Task Name: `Daily Security & Code Quality Scan`
    - Response Subagent: `DailySecurityScan`
-   - Task Details: `scan order-api source code for security anti-patterns and check logs for leaked secrets`
+   - Task Details: `Scan the order-api environment for security risks - check Key Vault certificates for upcoming expiry and App Insights logs for attack patterns or leaked secrets.`
    - Frequency: **Daily**
    - Time: **8:00 AM**
    - Message Grouping: **New thread for each run**
@@ -202,16 +202,26 @@ KV_NAME=$(az deployment group show -g rg-srea-demo -n main --query properties.ou
 az role assignment create --assignee $AGENT_MI --role "Key Vault Reader" \
   --scope "/subscriptions/<sub-id>/resourceGroups/rg-srea-demo/providers/Microsoft.KeyVault/vaults/$KV_NAME"
 ```
-2. This gives the agent file operations, terminal, code execution in a sandbox
-3. Required for the skill toggle in Act 3
+
+> **Finding the managed identity name:** Go to sre.azure.com → your agent → Settings → look for "Managed identity" link. The name is shown there (e.g., `srea-demo-agent-xxxxx`). You can also run `az identity list -g rg-srea-demo --query "[].name" -o tsv`.
 
 ### 12. Cert Expiry Setup (Act 5)
 
 The Bicep template creates a self-signed cert with 1-month validity. For the demo, the cert
-needs to be 5-10 days from expiry. Either:
+needs to be within 30 days of expiry (the DailySecurityScan flags anything within 30 days). The Bicep
+creates a 1-month cert, so it will be flagged immediately after deployment. Either:
 
 - Deploy ~23 days before the demo, or
-- Manually recreate the cert closer to demo day
+- Manually recreate the cert closer to demo day:
+
+```bash
+KV_NAME=$(az deployment group show -g rg-srea-demo -n main \
+  --query properties.outputs.keyVaultName.value -o tsv)
+
+# Create (or recreate) the self-signed cert
+az keyvault certificate create --vault-name $KV_NAME -n order-api-tls \
+  --policy '{"issuerParameters":{"name":"Self"},"x509CertificateProperties":{"subject":"CN=order-api-demo.contoso.com","validityInMonths":1}}'
+```
 
 Verify:
 ```bash
@@ -241,7 +251,7 @@ az keyvault certificate show --vault-name $KV_NAME -n order-api-tls \
 | T-1h | 500-errors alert fired | Check Alerts blade in Azure Portal |
 | T-1h | Incident trigger completed | Activities tab in sre.azure.com |
 | T-1h | Scheduled task ran at 8 AM | Scheduled Tasks tab in sre.azure.com |
-| T-30m | Cert expiry 5-10 days out | `az keyvault certificate show --vault-name <kv> -n order-api-tls --query 'attributes.expires'` |
+| T-30m | Cert expiry within 30 days | `az keyvault certificate show --vault-name <kv> -n order-api-tls --query 'attributes.expires'` |
 | T-5m | Skill NOT added | Delete `order-api-runbook` if present |
 | T-5m | Hook IS applied | Verify scaling guardrail in Hooks tab |
 | T-2m | Chat history cleared | Clear in sre.azure.com |
@@ -321,7 +331,7 @@ Delete the SRE Agent from [sre.azure.com](https://sre.azure.com) → agent setti
                │
                ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  GitHub: cachai2/srea-levelup-demo                           │
+│  GitHub: <your-org>/srea-levelup-demo                           │
 │  - Source code search (QuerySourceBySemanticSearch)          │
 │  - Issue creation (CreateGithubIssue)                        │
 └──────────────────────────────────────────────────────────────┘

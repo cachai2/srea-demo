@@ -172,7 +172,7 @@ Navigate to Activities tab, start pointing at the LatencyIncidentHandler thread 
 ### Setup (done before the session)
 - Subagent `LatencyIncidentHandler` configured — investigates latency spikes, can scale Container Apps (Contributor on Container App resource only — not the resource group), creates GitHub issues
 - Incident trigger created: fires on p95 latency threshold, processing mode = **Autonomous**
-- **Scaling guardrail hook already applied** — `posttooluse-scaling-guardrail.yaml`, max 10 replicas
+- **Scaling guardrail hook already applied** — `hooks/scaling-guardrail.py`, max 10 replicas
 - `generate-errors.ps1` generated `/slow` endpoint traffic → 5s response times → alert fired → subagent investigated, hook validated the scaling action, and mitigated
 
 ### Flow
@@ -259,7 +259,7 @@ Show the hook's block response on screen (pre-captured or from the YAML): `POLIC
 
 **0:00** — *"The pipeline caught the crash. The incident trigger caught the slowness. But there are two more problems in our environment that neither would ever find."*
 
-**0:30** — *"First — and this one is deterministic: we have a TLS certificate in Key Vault that expires in 7 days. No alert is configured for that. Second: someone has been probing our API with SQL injection payloads — the requests returned 200, so no error-based monitoring caught it. But the query strings are sitting in our App Insights logs."*
+**0:30** — *"First — and this one is deterministic: we have a TLS certificate in Key Vault that expires in about 30 days. No alert is configured for certificate expiry. Second: someone has been probing our API with SQL injection payloads — the requests returned 200, so no error-based monitoring caught it. But the query strings are sitting in our App Insights logs."*
 
 **1:00** — Navigate to **Scheduled Tasks** tab  
 *"That's Layer 4. I set this up yesterday — one cron schedule, one subagent, same YAML pattern you've seen. A daily security scan that runs every morning at 8 AM. No trigger needed — just time."*
@@ -271,10 +271,10 @@ Show the hook's block response on screen (pre-captured or from the YAML): `POLIC
 *"Let's see what it found this morning."*
 
 **2:30** — Walk through **primary finding** — certificate expiry  
-*"First: the order-api-tls certificate in Key Vault expires in 7 days."*
+*"First: the order-api-tls certificate in Key Vault expires in about 30 days."*
 
 **3:00** — Let the finding sink in  
-*"This one is deterministic — the cert either expires or it doesn't. No monitoring tool fires an alert for this by default. In 7 days, your customers get a certificate error and your app is effectively down. The agent checks every Key Vault cert, every morning, and flags anything within 30 days of expiry."*
+*"This one is deterministic — the cert either expires or it doesn't. No monitoring tool fires an alert for certificate expiry by default. In 30 days, your customers get a certificate error and your app is effectively down. The agent checks every Key Vault cert, every morning, and flags anything within 30 days of expiry."*
 
 **3:15** — Show GitHub issue for cert  
 *"It already created a GitHub issue: cert name, vault name, expiry date, recommended action. Ready for the team to pick up."*
@@ -305,7 +305,7 @@ Show the hook's block response on screen (pre-captured or from the YAML): `POLIC
 > - *Layer 1: We added one webhook to our pipeline. The agent caught a 500 error — generic investigation, stack trace, line number. Good, but generic.*
 > - *Layer 2: We uploaded a Markdown file — our team's runbook. Same bug, but now: known pattern matched, runbook followed, right team paged. Five minutes of config, and the agent went from AI to YOUR AI.*
 > - *Layer 3: An incident fired at 2 AM. The agent scaled pods to absorb the load — and the hook made sure it couldn't scale past 10. Expertise with guardrails.*
-> - *Layer 4: A daily scan found a cert expiring in 7 days and SQL injection probes in the logs. No alert fires for either. The agent checks every day.*
+> - *Layer 4: A daily scan found a cert expiring in ~30 days and SQL injection probes in the logs. No alert fires for either. The agent checks every day.*
 >
 > *You just watched the same agent go from 'I found a 500' to 'I matched your known pattern, followed your runbook, scaled your pods within policy, and found a cert nobody knew was expiring.' All you added was one trigger, one skill, one hook, one task."*
 

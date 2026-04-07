@@ -106,7 +106,7 @@ Instead of showing three independent triggers finding three independent bugs, we
 | **Features** | Incident Trigger, Hooks (command hook — deterministic, not LLM-evaluated), Review vs Autonomous |
 | **Bug** | Sequential per-row processing on `/slow` → 5s p95 latency under EU load |
 | **Subagent** | `LatencyIncidentHandler` (Contributor on Container App resource only — not the resource group) |
-| **Hook** | `posttooluse-scaling-guardrail.yaml` — max 10 replicas |
+| **Hook** | `hooks/scaling-guardrail.py` — max 10 replicas |
 | **Risk** | Medium — depends on incident trigger having fired overnight |
 | **Fallback** | Invoke subagent in Playground. Show YAML + narrate. Screenshot of prior run. |
 
@@ -230,7 +230,7 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 | T-1 hour | Scheduled task ran at 8 AM | ☐ |
 | T-1 hour | App Insights has 500s on `/orders/999` — run `az monitor app-insights query --app <app> --analytics-query "exceptions \| where timestamp > ago(12h) \| count"`. Expect ≥10. If zero, re-run `generate-errors.ps1`, wait 5 min. **Act 2 is dead without these.** | ☐ |
 | T-1 hour | App Insights has SQLi probes — run `az monitor app-insights query --app <app> --analytics-query "requests \| where timestamp > ago(12h) and url contains 'status=' and url contains 'OR' \| count"`. Expect ≥10. **Act 5 needs these.** | ☐ |
-| T-1 hour | Azure Monitor alert `order-api-demo-500-errors` has fired — check Alerts blade or `az monitor metrics alert show`. If not fired, the incident trigger won't have run. **Act 4 depends on this.** | ☐ |
+| T-1 hour | Azure Monitor alert `order-api-demo-high-latency` has fired — check Alerts blade or Scheduled Query Rules. If not fired, the incident trigger won't have run. **Act 4 depends on this.** | ☐ |
 | T-30 min | Workspace mode is ON | ☐ |
 | T-30 min | Cert `order-api-tls` expiry is ~30 days out (created with 1-month validity). Note the exact date for narration. | ☐ |
 | T-30 min | HTTP trigger subagent configured | ☐ |

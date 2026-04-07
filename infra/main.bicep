@@ -156,7 +156,9 @@ resource keyVaultReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01'
 // The Key Vault certificates API doesn't work reliably with ARM deployments
 // (returns NotFound even when the vault exists). Create manually:
 //   az keyvault certificate create --vault-name <kv> -n order-api-tls --policy @cert-policy.json
-// ⚠️ For the demo, recreate ~23 days after initial deploy so it has ~7 days remaining.
+// ⚠️ For the demo, the cert is created with 1-month validity (~30 days).
+// The DailySecurityScan flags anything within 30 days, so it will be caught
+// immediately after creation. No need to manually recreate.
 // Check: az keyvault certificate show --vault-name <kv> -n order-api-tls --query 'attributes.expires'
 
 // ---------- Alert Rule for Incident Trigger ----------

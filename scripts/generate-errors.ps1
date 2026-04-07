@@ -1,6 +1,8 @@
 # ---------------------------------------------------------------------------
 # Generate telemetry data for the SREA demo.
-# Run this 5-10 minutes BEFORE the live demo so App Insights has data.
+# Run this ~12 hours BEFORE the live demo so the Azure Monitor alert
+# fires and the incident trigger completes its investigation overnight.
+# Telemetry ingests in 2-5 minutes.
 #
 # Usage: .\scripts\generate-errors.ps1 [-ResourceGroup rg-srea-demo]
 # ---------------------------------------------------------------------------
