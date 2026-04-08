@@ -46,6 +46,8 @@ srea-levelup-demo/
 
 ## Pre-Demo Setup
 
+> **Tip:** The fastest way to set up is to clone this repo, open it in VS Code, and use GitHub Copilot (Agent mode) to run through the steps below. It will execute the CLI commands, deploy the infrastructure, and tell you which manual portal steps remain. Just say: *"Follow the README to set up the SRE Agent demo."*
+
 ### 1. Prerequisites
 
 | Requirement | Details |
@@ -55,8 +57,6 @@ srea-levelup-demo/
 | Resource provider | `az provider register --namespace "Microsoft.App"` |
 | Resource provider | `az provider register --namespace "Microsoft.ContainerRegistry"` |
 | GitHub repo | Push this project to a GitHub repo for source code integration |
-
-> **Tip:** The fastest way to set up is to clone this repo, open it in VS Code, and use GitHub Copilot (Agent mode) to run through the steps below. It will execute the CLI commands, deploy the infrastructure, and tell you which manual portal steps remain. Just say: *"Follow the README to set up the SRE Agent demo."*
 
 ### 2. Deploy Infrastructure + App
 
