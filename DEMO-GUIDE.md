@@ -170,7 +170,6 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 | `sre-config/scheduled-health-check.yaml` | DailySecurityScan subagent (Reader) | Act 5 |
 | `sre-config/scaling-guardrail.py` | Max 10 replicas guardrail (paste into portal hook editor) | Act 4 |
 | `sre-config/order-api-runbook/SKILL.md` | Known patterns, remediation, escalation | Act 3 |
-| `sre-config/order-api-runbook/skill.yaml` | Skill definition | Act 3 |
 | `infra/main.bicep` | ACR + Container App + App Insights + Key Vault + Alert Rules | Setup |
 | `scripts/generate-errors.ps1` | Generate telemetry: 500s, `/slow` latency, SQL injection probes | Setup |
 | `scripts/generate-errors.sh` | Generate telemetry (Linux/macOS) | Setup |
