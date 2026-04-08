@@ -96,7 +96,7 @@
 **2:00** — Go to Builder → Skills → Create  
 *"I'm creating a Skill — a Markdown doc with our team's known issue patterns, remediation steps, and escalation policy. Any SRE could write this."*
 
-**2:30** — Upload `order-api-runbook/SKILL.md`, no tools needed  
+**2:30** — Upload `sre-config/skill-order-api-runbook.md`, no tools needed  
 *"4 known patterns, severity thresholds, who to page. Three years of operational experience in one Markdown file."*
 
 **2:45** — Verify skill loaded (hot-reload)  

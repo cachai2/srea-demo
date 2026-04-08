@@ -128,7 +128,7 @@ bash scripts/generate-errors.sh rg-srea-demo
    - Message grouping: **New chat thread for each run**
 7. Copy the webhook URL for CI/CD integration
 
-> **Note:** Filename is legacy (`incident-error-handler.yaml`); the subagent name in the portal is `PostDeployValidator`.
+> **Note:** The subagent name in the portal is `PostDeployValidator`.
 
 ### 7. Configure LatencyIncidentHandler — Incident Trigger (Act 4)
 
