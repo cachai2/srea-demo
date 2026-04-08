@@ -35,8 +35,8 @@ srea-levelup-demo/
 ├── scripts/
 │   ├── generate-errors.ps1 #   Seed telemetry (Windows) — 500s, /slow latency, SQLi probes
 │   └── generate-errors.sh  #   Seed telemetry (Linux/macOS)
-├── demoSpec.md             # Full demo spec (source of truth)
-├── DEMO-FLOW.md            # Scripted run-of-show with timestamps
+├── DEMO-GUIDE.md            # Presenter guide (planning, Q&A, risk matrix)
+├── DEMO-SCRIPT.md           # Scripted run-of-show with timestamps
 └── README.md               # ← You are here
 ```
 
@@ -269,7 +269,7 @@ az keyvault certificate show --vault-name $KV_NAME -n order-api-tls \
 | 5 | "It Finds What You're Not Looking For" | 8 min | + Scheduled Task | Pre-run |
 | — | Closing | 3 min | — | — |
 
-See [DEMO-FLOW.md](DEMO-FLOW.md) for the full scripted walkthrough with timestamps and speaker notes.
+See [DEMO-SCRIPT.md](DEMO-SCRIPT.md) for the full scripted walkthrough with timestamps and speaker notes.
 
 ---
 

@@ -261,5 +261,5 @@ These capabilities exist but are deliberately not shown. If asked, deflect confi
 ## Post-Demo
 
 - Share the samples repo with attendees
-- Link to DEMO-FLOW.md for the full scripted walkthrough
+- Link to DEMO-SCRIPT.md for the full scripted walkthrough
 - Collect feedback: which demo moment resonated most?
