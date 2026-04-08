@@ -27,8 +27,7 @@ srea-levelup-demo/
 │   ├── subagent-latency-incident-handler.yaml # LatencyIncidentHandler (Act 4)
 │   ├── subagent-daily-security-scan.yaml      # DailySecurityScan (Act 5)
 │   ├── hook-scaling-guardrail.py              # Scaling hook Python script (Act 4)
-│   └── skill-order-api-runbook/               # Skill (added live in Act 3)
-│       └── SKILL.md
+│   └── skill-order-api-runbook.md             # Skill runbook (added live in Act 3)
 ├── infra/
 │   └── main.bicep          #   ACR + Container App + App Insights + Key Vault + Alerts
 ├── scripts/

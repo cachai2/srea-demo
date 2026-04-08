@@ -169,7 +169,7 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 | `sre-config/subagent-latency-incident-handler.yaml` | LatencyIncidentHandler subagent (Contributor) | Act 4 |
 | `sre-config/subagent-daily-security-scan.yaml` | DailySecurityScan subagent (Reader) | Act 5 |
 | `sre-config/hook-scaling-guardrail.py` | Max 10 replicas guardrail (paste into portal hook editor) | Act 4 |
-| `sre-config/skill-order-api-runbook/SKILL.md` | Known patterns, remediation, escalation | Act 3 |
+| `sre-config/skill-order-api-runbook.md` | Known patterns, remediation, escalation | Act 3 |
 | `infra/main.bicep` | ACR + Container App + App Insights + Key Vault + Alert Rules | Setup |
 | `scripts/generate-errors.ps1` | Generate telemetry: 500s, `/slow` latency, SQL injection probes | Setup |
 | `scripts/generate-errors.sh` | Generate telemetry (Linux/macOS) | Setup |
