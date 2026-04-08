@@ -106,7 +106,7 @@ Instead of showing three independent triggers finding three independent bugs, we
 | **Features** | Incident Trigger, Hooks (command hook — deterministic, not LLM-evaluated), Review vs Autonomous |
 | **Bug** | Sequential per-row processing on `/slow` → 5s p95 latency under EU load |
 | **Subagent** | `LatencyIncidentHandler` (Contributor on Container App resource only — not the resource group) |
-| **Hook** | `sre-config/scaling-guardrail.py` — max 10 replicas |
+| **Hook** | `sre-config/hook-scaling-guardrail.py` — max 10 replicas |
 | **Risk** | Medium — depends on incident trigger having fired overnight |
 | **Fallback** | Invoke subagent in Playground. Show YAML + narrate. Screenshot of prior run. |
 
@@ -165,11 +165,11 @@ The `/` endpoint returns `{"service": "order-api", "version": "1.2.0", "deployed
 | File | Purpose | Used in |
 |------|---------|---------|
 | `sample-app/app.py` | Flask API with 4 planted bugs | All acts |
-| `sre-config/incident-error-handler.yaml` | PostDeployValidator subagent (Reader) | Acts 2-3 |
-| `sre-config/latency-incident-handler.yaml` | LatencyIncidentHandler subagent (Contributor) | Act 4 |
-| `sre-config/scheduled-health-check.yaml` | DailySecurityScan subagent (Reader) | Act 5 |
-| `sre-config/scaling-guardrail.py` | Max 10 replicas guardrail (paste into portal hook editor) | Act 4 |
-| `sre-config/order-api-runbook/SKILL.md` | Known patterns, remediation, escalation | Act 3 |
+| `sre-config/subagent-post-deploy-validator.yaml` | PostDeployValidator subagent (Reader) | Acts 2-3 |
+| `sre-config/subagent-latency-incident-handler.yaml` | LatencyIncidentHandler subagent (Contributor) | Act 4 |
+| `sre-config/subagent-daily-security-scan.yaml` | DailySecurityScan subagent (Reader) | Act 5 |
+| `sre-config/hook-scaling-guardrail.py` | Max 10 replicas guardrail (paste into portal hook editor) | Act 4 |
+| `sre-config/skill-order-api-runbook/SKILL.md` | Known patterns, remediation, escalation | Act 3 |
 | `infra/main.bicep` | ACR + Container App + App Insights + Key Vault + Alert Rules | Setup |
 | `scripts/generate-errors.ps1` | Generate telemetry: 500s, `/slow` latency, SQL injection probes | Setup |
 | `scripts/generate-errors.sh` | Generate telemetry (Linux/macOS) | Setup |
