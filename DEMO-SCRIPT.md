@@ -172,7 +172,7 @@ Navigate to Activities tab, start pointing at the LatencyIncidentHandler thread 
 ### Setup (done before the session)
 - Subagent `LatencyIncidentHandler` configured — investigates latency spikes, can scale Container Apps (Contributor on Container App resource only — not the resource group), creates GitHub issues
 - Incident trigger created: fires on p95 latency threshold, processing mode = **Autonomous**
-- **Scaling guardrail hook already applied** — `hooks/scaling-guardrail.py`, max 10 replicas
+- **Scaling guardrail hook already applied** — `sre-config/scaling-guardrail.py`, max 10 replicas
 - `generate-errors.ps1` generated `/slow` endpoint traffic → 5s response times → alert fired → subagent investigated, hook validated the scaling action, and mitigated
 
 ### Flow

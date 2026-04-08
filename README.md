@@ -18,20 +18,18 @@
 
 ```
 srea-levelup-demo/
-├── buggy-app/              # Sample app with planted bugs
-│   ├── app.py              #   Flask API with 4 intentional bugs + OpenTelemetry
+├── sample-app/              # Sample order-api service
+│   ├── app.py              #   Flask API with intentional bugs + OpenTelemetry
 │   ├── requirements.txt
 │   └── Dockerfile
-├── subagents/              # Subagent YAML definitions
-│   ├── incident-error-handler.yaml  #   Acts 2-3: PostDeployValidator (HTTP trigger)
-│   ├── latency-incident-handler.yaml #  Act 4: LatencyIncidentHandler (incident trigger)
-│   └── scheduled-health-check.yaml  #   Act 5: DailySecurityScan (scheduled task)
-├── hooks/                  # Agent hook configurations
-│   └── scaling-guardrail.py        #  Act 4: Max 10 replicas (paste into portal hook editor)
-├── skills/                 # Skill definitions
-│   └── order-api-runbook/          #   Act 3: Order API incident response guide
-│       ├── SKILL.md        #     Known patterns, remediation, escalation policy
-│       └── skill.yaml      #     Skill definition (name, description, tools)
+├── sre-config/             # SRE Agent portal configuration
+│   ├── incident-error-handler.yaml    # PostDeployValidator subagent (Acts 2-3)
+│   ├── latency-incident-handler.yaml  # LatencyIncidentHandler subagent (Act 4)
+│   ├── scheduled-health-check.yaml    # DailySecurityScan subagent (Act 5)
+│   ├── scaling-guardrail.py            # Scaling hook Python script (Act 4)
+│   └── order-api-runbook/             # Skill (added live in Act 3)
+│       ├── SKILL.md
+│       └── skill.yaml
 ├── infra/
 │   └── main.bicep          #   ACR + Container App + App Insights + Key Vault + Alerts
 ├── scripts/
@@ -73,8 +71,8 @@ az deployment group create \
 ACR_NAME=$(az deployment group show -g rg-srea-demo -n main \
   --query properties.outputs.acrName.value -o tsv)
 
-# Step 3 — Build & push the buggy-app image (tag MUST be 1.2.0)
-az acr build -r $ACR_NAME -g rg-srea-demo -t order-api-demo:1.2.0 ./buggy-app
+# Step 3 — Build & push the sample app image (tag MUST be 1.2.0)
+az acr build -r $ACR_NAME -g rg-srea-demo -t order-api-demo:1.2.0 ./sample-app
 
 # Step 4 — Redeploy, now pointing to the real image
 az deployment group create \
@@ -121,7 +119,7 @@ bash scripts/generate-errors.sh rg-srea-demo
 
 1. Go to **Subagent Builder** → **+ New Subagent**
 2. Name: `PostDeployValidator`
-3. Click **Edit** → **YAML** tab → paste contents of `subagents/incident-error-handler.yaml`
+3. Click **Edit** → **YAML** tab → paste contents of `sre-config/incident-error-handler.yaml`
 4. Update the email recipient in the YAML to your email address
 5. Click **Save**
 6. Set up the **HTTP Trigger**:
@@ -138,7 +136,7 @@ bash scripts/generate-errors.sh rg-srea-demo
 
 1. Go to **Subagent Builder** → **+ New Subagent**
 2. Name: `LatencyIncidentHandler`
-3. Click **Edit** → **YAML** tab → paste contents of `subagents/latency-incident-handler.yaml`
+3. Click **Edit** → **YAML** tab → paste contents of `sre-config/latency-incident-handler.yaml`
 4. Update the email recipient in the YAML to your email address
 5. Click **Save**
 6. Go to **Incident Triggers** → **+ New Incident Trigger**
@@ -156,7 +154,7 @@ bash scripts/generate-errors.sh rg-srea-demo
 
 1. Go to **Subagent Builder** → **+ New Subagent**
 2. Name: `DailySecurityScan`
-3. Click **Edit** → **YAML** tab → paste contents of `subagents/scheduled-health-check.yaml`
+3. Click **Edit** → **YAML** tab → paste contents of `sre-config/scheduled-health-check.yaml`
 4. Update the email recipient in the YAML to your email address
 5. Click **Save**
 6. Go to **Scheduled Tasks** → **+ New Scheduled Task**
@@ -179,7 +177,7 @@ bash scripts/generate-errors.sh rg-srea-demo
 
 1. Go to **Hooks** → **Create hook**
 2. Settings: Event type: **PostToolUse**, Hook type: **Command**, Language: **Python**, Activation: **Always**, Fail mode: **Block**, Timeout: **30**
-3. Paste the Python script from `hooks/scaling-guardrail.py`
+3. Paste the Python script from `sre-config/scaling-guardrail.py`
 4. Apply at **agent level** (applies to all subagents)
 5. Click **Save**
 
